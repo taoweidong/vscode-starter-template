@@ -4,6 +4,161 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 工程化（M6 · 工程化与文档收口）
+
+- **ESLint + Prettier**：flat config（`eslint.config.ts`，@eslint/js + typescript-eslint 推荐 +
+  eslint-plugin-vue vue3-recommended + eslint-config-prettier，jiti 加载）；`.prettierrc` /
+  `.prettierignore` 按现有风格（单引号 / 无分号 / printWidth 100 / 尾逗号 es5）；全量一次性
+  格式化（139 文件，行为不变）；`npm run lint` / `npm run format:check` 全绿，定向规则豁免
+  在配置内逐条注明原因。
+- **门禁重构（P1-14 收口）**：步骤重排为 8 步（① lint/格式 → ② 类型 → ③ 宿主构建 →
+  ④ Webview 构建 → ⑤ 测试编译 → ⑥ 静态一致性 → ⑦ 单测+覆盖率阈值 → ⑧ 宿主集成，--fast
+  跳过⑧）；静态检查去硬编码——删除项目名 / repository 身份断言，「视图数 ≥ 6」改为
+  constants VIEW ↔ manifest 双向结构校验 + 菜单 `view == xxx` 目标存在性；命令提取正则支持
+  数字与连字符；**新增**命令注册检查（清单 ↔ `register(COMMAND.xxx`）与特性开关一致性
+  （FEATURE_FLAGS key+defaultValue ↔ `crudStarter.features.*` 双向）与图标存在检查；
+  `FORM_SCHEMA` 数量须与 `ITEM_FIELD_DEFS` 一致（派生约束进门禁）；改名实验通过。
+- **CI（E1）**：`.github/workflows/ci.yml`——windows-latest 跑完整 gate + `test:e2e`
+  （Playwright 用自带 Edge），ubuntu-latest 跑 `gate -- --fast`；Node 20 + `npm ci` +
+  `.vscode-test` 缓存（key 含 lockfile 哈希）；PR 与 main push 触发，并发组取消旧跑。
+- **发布元数据（E2/E3）**：LICENSE（MIT）；`scripts/generate-icon.ts`（Playwright msedge
+  截图 SVG → 128×128 PNG）生成 `media/icon.png`；`package.json` 补 `license` / `icon` /
+  `categories` / `homepage` / `bugs`；`.vscodeignore` 增补 tests/ 测试产物；README docs
+  链接改绝对 URL（Marketplace 0 404）；`vsce package --no-dependencies` **零警告**
+  （263.73 KB / 52 文件）。
+- **测试修复（P1-13 收口）**：「getGitInfo 识别 main」改为 os.tmpdir 临时 git fixture
+  （init + commit + 建分支，finally 清理），不再依赖本仓库分支状态；环境检测用例改语义
+  断言（Node.js 必检到，Python/Git 状态 ∈ {ok, missing}）。
+- **formSchema 领域派生**：`FORM_SCHEMA` 由 `ITEM_FIELD_DEFS`（`src/domain/itemSchema.ts`）
+  经 `deriveFormSchema` 派生（datalist 等 UI 附加属性以声明式表叠加，不污染领域定义），
+  「加字段 = 领域 Schema 一处（模型类型可选）」正式收口；配套单测（含「加字段自动出现」
+  与一致性锁定）。
+- **P1-08 作用域修复**：`setFeatureValue` 写入前 `inspect()` 检查工作区覆盖——有覆盖写
+  Workspace（与生效来源一致，修复「点击开关无反应」），无覆盖维持 Global；配套单测。
+- **覆盖率阈值**（实测：整体 93.2L/88.85B/94.06F/93.36S）：整体 92L/87B，services 90L/85B、
+  models 95L/93B、domain 81L/73B（`coerceBooleanField` 为预留路径，接入 boolean 字段后可
+  提至 85+）、protocol 100；`vitest run --coverage` 进门禁，阈值失败即红。
+- **模型去 Node 依赖**：`createId` 改用 `globalThis.crypto.randomUUID()`（Node ≥ 20 内建
+  全局），models 不再 import `crypto` 模块——领域 Schema 可被 Webview 类型程序
+  （types:[]）安全引用，支撑 formSchema 派生。
+- **文档一致性（D1–D10 清零）**：README（表单面板 Vue 3 / 领域 Schema 加字段流程 /
+  getStore 换源说明 / 目录树补 domain / 下载体积统一实测约 1GB / UI 约定表补设计系统
+  基线行）；agent.md（门禁 8 步 / 硬性规约第 2 条改领域 Schema + Vue 组件化 / 架构图补
+  domain 与 webview）；操作指导 03（加字段一处 / 测试分层动态描述 / 阅读顺序补
+  domain+webview）；02 全部 P0/P1 标 ✅、W/C 组与 E1/E2/E3/E5 标注修复、遗留项（E4/E6/
+  E7/E8、T1–T5）保留；05 里程碑与任务表加完成标记 + M6 偏差说明。
+
+### 新增（M2 · 单元测试基建与工具链）
+
+- **全量单元测试层**：Vitest + jsdom + `vscode` 测试桩（`src/test/unit/stubs/vscode.ts`，
+  EventEmitter / window 录制器 / workspace.fs / getConfiguration / watcher 桩），
+  `npm run test:unit` 不启动 VSCode、全量 < 10s（210+ 用例）；覆盖率阈值进入配置。
+- **一键打包离线 .vsix**：`npm run package:vsix`（`@vscode/vsce` 内置 devDependency，
+  免全局安装）；`.vscodeignore` 目标态（排除 scripts / agent.md / 配置文件）。
+- **构建脚本 TypeScript 化**：`esbuild.js` → `scripts/build-extension.ts`、
+  `gate.js` → `scripts/gate.ts`（fail-fast + `--fast` 跳过宿主集成；静态检查拆分至
+  `scripts/checks/manifest.ts`），统一经 `tsx` 执行；源码树不再包含 JS 脚本。
+- **agent.md 单元测试协议**：每轮对话结束 / 提交前必须执行并通过单元测试
+  （日常 `test:unit`，收尾完整 `gate`）；新增代码测试先行。
+- 开发环境 Node 要求提升至 ≥ 20.19（Vite 7 / Vitest 5 工具链）。
+
+### 新增（M2/M3 · Vue 3 Webview 底座与 VSCode 原生设计系统）
+
+- **Vite + Vue 3 管线**：`vite.config.ts` 多入口（页面注册表 `src/webview/pages.ts`
+  单一来源）+ manifest + runtime-only Vue + 严格 CSP（无 unsafe-eval/unsafe-inline）。
+- **Webview 宿主框架**：`webviewController`（单例面板 / 幂等 dispose / dirty 确认 /
+  10s 提交超时 / serializer）、`webviewHtml`（CSP 外壳纯函数）、`assetResolver`
+  （manifest 资源解析）、`protocol.ts`（双向消息判别联合 + 运行时守卫）。
+- **VSCode 原生设计系统**：`ui/tokens.css` 语义令牌全表（--ui-* → --vscode-*）+
+  12 个基础组件（VButton/VInput/VTextarea/VSelect/VCheckbox/VFormField/VToolbar/
+  VEmptyState/VLoading/VBadge/AppShell 等，零硬编码颜色，间距 4/8/12/16/24）+
+  codicon 图标统一 + **组件画廊页面**（gallery，全部组件 × 状态）。
+- 4 个页面入口就位（itemForm / featureConfig / importWizard / gallery，前三者为
+  M4 迁移占位）；Webview 单页 JS+CSS 远低于 200KB 预算。
+
+### 修复（M1 · 数据可靠性，P0 三连）
+
+- **数据文件损坏不再自动移走/清空**：解析失败时复制备份（.corrupt-*.bak，原文件
+  留在原地）并弹窗三选（以空数据继续 / 打开原文件 / 取消）；IO 错误不再误判为损坏；
+  备份失败显式报错。
+- **原子写**：临时文件 → 读回校验 → rename 替换；任何失败原文件保持不变。
+- **storagePath 路径白名单**（P0-03）：拒绝绝对路径 / `..` / glob 字符 / 非 .json，
+  必须位于工作区内；非法时回退默认路径并警告；配置 scope 收紧为 machine。
+- **加载校验与迁移**：条目运行时守卫 + 默认值补齐 + 重复 id 处理 + 坏条目隔离上报；
+  存储格式升级为 `{schemaVersion:2, items}`（旧数组自动迁移）；BOM 容错。
+- **并发与生命周期**：loadPromise 单飞、写操作串行队列、保存成功才提交缓存（失败
+  回滚重读）、reload generation 防竞态、watcher 300ms 防抖 + 自写抑制 + 删除事件
+  不清空数据、StorageController 在工作区/配置变化时重建 store 与 watcher
+  （service 实例稳定，命令引用不失效）。
+- 新增单元测试 100+ 例（路径矩阵 / 损坏恢复 / 原子写 / 迁移 / 并发 / watcher /
+  生命周期）；含 3 例 `it.fails` 哨兵（「加字段全链路不丢」，M5 领域 Schema 修复后转绿）。
+
+### 新增（M4 · Vue 3 页面迁移与命令层）
+
+- **三个 Webview 页面全部 Vue 3 化**：条目表单（新增/预填/编辑回填）、特性配置
+  （开关列表）、批量导入向导（多步骤）；`SchemaForm` + 五类字段组件由 init 消息
+  携带的 Schema 驱动；旧字符串渲染器 `formHtml.ts` **删除下线**。
+- **表单体验**：草稿持久化（`setState` 500ms 防抖 + 恢复提示 + 丢弃按钮）、dirty
+  上报与切换目标模态确认、窗口重载 serializer 恢复、提交在途禁用 + 10s 超时恢复、
+  校验错误按字段定位（aria-invalid + role=alert）、IME 组合期不误触 Esc/Ctrl+Enter。
+- **批量导入向导（新页面）**：来源选择（浏览对话框）→ 预览去重（同名标注、上限
+  50）→ 分批执行（每批 ≤20，进度 + 取消即停保留已完成）→ 结果汇总；资源管理器
+  右键「将文件夹内容登记为条目」升级为打开向导并预填路径。
+- **命令层清理**：批量删除/设优先级走 `removeMany/updateMany`（单次写盘，missing
+  如实报告）；编辑/追加/改优先级基于最新数据（消灭树节点旧快照丢更新）；「更多
+  操作」真动态化（优先级标注当前值）并统一删除确认开关；`runInitStep/toggleFeature`
+  无参 QuickPick 引导；build warn 有反馈；剪贴板异常捕获；Markdown 复制转义；文件
+  摘录 1MB/二进制防护；文件入口拒文件夹；选择器列出全部条目并标注过滤状态；
+  「打开数据文件」按当前数据源类型给出准确文案（动态获取 store）。
+- 门禁更新：新增 Webview 构建（vite build）步骤；静态一致性检查改为校验
+  `dist/webview/.vite/manifest.json` 与页面注册表入口一致。
+- 新增组件/页面/面板测试 105 例。
+
+### 新增/修复（M5 · 承诺兑现与生命周期）
+
+- **领域 Schema 单一来源**（`src/domain/itemSchema.ts`）：`coerceDraft / toDraft /
+cloneDraft / applyPatch`；未知字段透传——「加字段」在表单渲染、校验、克隆、追加、
+  落盘往返全链路不再丢字段（**P0-04 关闭**，3 个哨兵用例转绿）。
+- **ItemService 批量 API**：`createMany / updateMany / removeMany`（单次读盘/写盘/
+  事件，事务语义，任一失败整体不写盘）。
+- **任务框架生命周期**：`TaskContext`（输出通道/工作区根/取消信号）+ 每任务超时 +
+  逐任务进度事件 + 结果形状校验 + try/finally（异常不再永久忙）；环境探测修正
+  「err 非空即失败」。
+- **环境初始化**：单步与全部执行互斥、步骤超时、环境快照复用启动任务最近结果。
+- **分支编译**（**P0-05 / P1-09 / P1-10 关闭**）：Workspace Trust 守卫 +
+  `capabilities.untrustedWorkspaces: limited` 声明；构建互斥；全流程进度与取消
+  （spawn 参数数组、shell:false，Windows 下 npm 经固定常量 cmd 包装）；分支名改用
+  `git check-ref-format` 校验；脏检查排除插件自身数据文件与 `.crud-starter/`；
+  切换分支前模态确认「将停留在目标分支」，失败附恢复指引。
+- 新增单测 68 例；宿主集成测试 28 例全绿。
+
+### 文档
+
+- **docs/需求与优化方案/**：五篇方案文档——
+  - `01-需求细化`：目标体系 G1-G6、功能需求 FR-01~FR-17、非功能 NFR-01~NFR-13，
+    逐条 Given/When/Then 验收标准与追踪矩阵；
+  - `02-现状差距与缺陷分析`：P0×5 / P1×17 / P2 30+ 缺陷清单（含 file:line 证据）、
+    需求达成度矩阵、文档偏差表 D1-D10、根因与风险矩阵；
+  - `03-技术选型与架构`：13 条 ADR、目标架构与目录、Vite+esbuild 双构建、
+    CSP 矩阵、消息协议、三层测试架构、一键 VSIX 打包设计；
+  - `04-VSCode原生设计系统`：语义令牌全表、组件规格与状态矩阵、组件画廊、
+    样式门禁规则；
+  - `05-优化方案与路线图`：M1-M6 任务清单（文件/验收/测试/工期）、DoD、
+    测试矩阵、度量指标、第一周执行清单。
+- **技术决策（已确认）**：TypeScript 全量化；Webview 页面全部迁移 Vue 3
+  （runtime-only + Vite 多入口）；组件视觉对齐 VSCode 原生（语义令牌 + 自研轻量
+  组件库，不引入通用 UI 框架）；6 个原生 TreeView 保持 VSCode Extension API。
+- **agent.md**：新增「单元测试协议（强制）」——每轮对话结束 / 代码提交前必须执行
+  并通过单元测试（现阶段以 `npm run gate` 为执行出口，M2 引入
+  `npm run test:unit` 后切换）；新增代码必须优先补充单元测试，修复 bug 先写
+  复现用例；测试不得跳过或伪造通过。
+- 计划内（M2 落地）：`npm run test:unit`（Vitest 单元 / 组件测试，不下载 VS Code，
+  目标 < 30s，含覆盖率阈值）；`npm run package:vsix`（一键打包离线 .vsix，
+  `@vscode/vsce` 内置 devDependency，免全局安装，门禁含 `vsce ls` 内容校验）。
+- 主 README 与操作指导索引增加方案入口。
+
 ## [0.6.1] - 2026-10-01
 
 ### 新增

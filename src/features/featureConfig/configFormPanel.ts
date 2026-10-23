@@ -1,109 +1,130 @@
-import * as vscode from 'vscode';
+import * as vscode from 'vscode'
 import {
   FEATURE_FLAGS,
+  getFeatureValue,
   getFeatureValues,
   setFeatureValue,
   toFormFields,
-} from './featureFlags';
-import { renderFormHtml } from '../../webview/formHtml';
-import type { FormField } from '../../webview/formSchema';
-
-type IncomingMessage =
-  | { type: 'ready' }
-  | { type: 'cancel' }
-  | { type: 'submit'; draft: Record<string, unknown> };
-
-type OutgoingMessage =
-  | { type: 'init'; item: Record<string, boolean>; categories: string[]; schema: FormField[] }
-  | { type: 'error'; message: string };
+} from './featureFlags'
+import { toFieldDefs } from '../../webview/formSchema'
+import { WebviewController, type WebviewControllerDeps } from '../../webview/host/webviewController'
 
 /**
- * 特性配置页面（单例 Webview）：演示「设置读写 + Schema 表单」模式。
- * 复用条目表单的渲染器（boolean 开关控件），保存即写入 VSCode 全局设置，立即生效。
+ * 特性配置面板（M4-T4.3 重写）：宿主侧改走通用 WebviewController。
+ *
+ * - init 回显 getFeatureValues()；保存（submit）逐项 setFeatureValue；
+ * - 批量写入采用 allSettled 语义：全部完成后收集失败项——
+ *   部分失败抛错（回 error 消息列出失败开关，面板保持打开供重试），
+ *   全部成功才关闭面板 + 成功提示（受 successNotifications 开关约束）；
+ * - setFeatureValue 可注入（单测模拟部分失败）。
  */
 export class ConfigFormPanel {
-  static currentPanel: ConfigFormPanel | undefined;
+  private static context: vscode.ExtensionContext | undefined
+  private static current: ConfigFormPanel | undefined
 
-  private disposables: vscode.Disposable[] = [];
-
-  private constructor(private readonly panel: vscode.WebviewPanel) {
-    this.panel.webview.html = renderFormHtml({
-      title: '特性配置',
-      subtitle: '开关保存后立即写入 VSCode 设置（crudStarter.features.*），并实时影响插件行为。',
-      schema: toFormFields(),
-    });
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-    this.panel.webview.onDidReceiveMessage(
-      (message: unknown) => void this.onMessage(message as IncomingMessage),
-      null,
-      this.disposables
-    );
+  /** extension.ts 组装时注入扩展上下文（面板资源解析基准）。 */
+  static configure(context: vscode.ExtensionContext): void {
+    ConfigFormPanel.context = context
   }
 
-  static createOrShow(): void {
-    const existing = ConfigFormPanel.currentPanel;
-    if (existing) {
-      existing.panel.reveal(vscode.ViewColumn.Active);
-      void existing.postInit();
-      return;
+  static createOrShow(extraDeps?: Partial<WebviewControllerDeps>): void {
+    const context = ConfigFormPanel.context
+    if (!context) {
+      void vscode.window.showErrorMessage(
+        '特性配置面板未完成装配（缺少扩展上下文），请重新加载窗口。'
+      )
+      return
     }
-    const panel = vscode.window.createWebviewPanel(
-      'crudStarter.configForm',
-      '特性配置',
-      vscode.ViewColumn.Active,
-      { enableScripts: true, retainContextWhenHidden: true }
-    );
-    ConfigFormPanel.currentPanel = new ConfigFormPanel(panel);
-  }
-
-  dispose(): void {
-    ConfigFormPanel.currentPanel = undefined;
-    this.panel.dispose();
-    for (const disposable of this.disposables) {
-      disposable.dispose();
+    const existing = ConfigFormPanel.current
+    if (existing && existing.isActive()) {
+      existing.controller?.reveal()
+      return
     }
-    this.disposables = [];
+    ConfigFormPanel.current = new ConfigFormPanel(context, extraDeps)
   }
 
-  private async postInit(): Promise<void> {
-    await this.panel.webview.postMessage({
-      type: 'init',
-      item: getFeatureValues(),
-      categories: [],
-      schema: toFormFields(),
-    } satisfies OutgoingMessage);
+  private controller: WebviewController | undefined
+
+  private constructor(
+    context: vscode.ExtensionContext,
+    extraDeps?: Partial<WebviewControllerDeps>
+  ) {
+    const baseDeps = this.buildDeps()
+    this.controller = WebviewController.createOrShow(
+      'featureConfig',
+      context,
+      extraDeps ? { ...baseDeps, ...extraDeps } : baseDeps
+    )
   }
 
-  private async onMessage(message: IncomingMessage): Promise<void> {
-    switch (message.type) {
-      case 'ready':
-        await this.postInit();
-        return;
-      case 'cancel':
-        this.panel.dispose();
-        return;
-      case 'submit': {
-        try {
-          let changed = 0;
-          for (const [key, value] of Object.entries(message.draft)) {
-            if (!FEATURE_FLAGS.some((flag) => flag.key === key)) {
-              continue; // 只接受注册过的开关，忽略页面上的未知字段
-            }
-            await setFeatureValue(key, Boolean(value));
-            changed++;
-          }
-          this.panel.dispose();
-          void vscode.window.showInformationMessage(`已保存 ${changed} 项特性配置。`);
-        } catch (err) {
-          const text = `保存失败：${err instanceof Error ? err.message : String(err)}`;
-          void vscode.window.showErrorMessage(text);
-          await this.panel.webview.postMessage({
-            type: 'error',
-            message: text,
-          } satisfies OutgoingMessage);
-        }
-        return;
+  private isActive(): boolean {
+    return (
+      this.controller !== undefined && WebviewController.get('featureConfig') === this.controller
+    )
+  }
+
+  private close(): void {
+    if (ConfigFormPanel.current === this) {
+      ConfigFormPanel.current = undefined
+    }
+    this.controller?.dispose()
+    this.controller = undefined
+  }
+
+  private buildDeps(): WebviewControllerDeps {
+    const panel = this
+    return createFeatureConfigDeps({
+      onSaved: () => panel.close(),
+      onCancel: () => panel.close(),
+    })
+  }
+}
+
+/** createFeatureConfigDeps 的可选钩子（保存成功 / 取消后由面板关闭自身）。 */
+export interface FeatureConfigDepsOptions {
+  onSaved?: () => void
+  /** 取消回调（页面点取消 / Esc 后由面板关闭自身）。 */
+  onCancel?: () => void
+  /** 单测注入：模拟部分开关写入失败。 */
+  applyFeatureValue?: (key: string, value: boolean) => Promise<void>
+}
+
+/**
+ * 特性配置页面的宿主依赖工厂（serializer 复用；onSubmit 也可用于面板直连）。
+ * allSettled 语义见类注释；失败开关联同 label 一并列出，便于用户定位重试。
+ */
+export function createFeatureConfigDeps(
+  options: FeatureConfigDepsOptions = {}
+): WebviewControllerDeps {
+  const apply = options.applyFeatureValue ?? setFeatureValue
+  return {
+    buildInit: () => ({
+      schema: toFieldDefs(toFormFields()),
+      value: getFeatureValues(),
+      extra: {},
+    }),
+    onSubmit: async (draft: Record<string, unknown>) => {
+      const entries = Object.entries(draft).filter(([key]) =>
+        FEATURE_FLAGS.some((flag) => flag.key === key)
+      )
+      const labels = new Map(FEATURE_FLAGS.map((flag) => [flag.key, flag.label]))
+      const results = await Promise.allSettled(
+        entries.map(([key, value]) => apply(key, value === true))
+      )
+      const failedKeys = entries
+        .filter((_, index) => results[index].status === 'rejected')
+        .map(([key]) => labels.get(key) ?? key)
+      if (failedKeys.length > 0) {
+        // 部分失败：面板保持打开，列出失败开关
+        throw new Error(
+          `部分开关保存失败：${failedKeys.join('、')}。请重试或检查 VSCode 设置权限。`
+        )
       }
-    }
+      options.onSaved?.()
+      if (getFeatureValue('successNotifications')) {
+        void vscode.window.showInformationMessage(`已保存 ${entries.length} 项特性配置。`)
+      }
+    },
+    onCancel: () => options.onCancel?.(),
   }
 }

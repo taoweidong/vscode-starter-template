@@ -1,118 +1,146 @@
-import * as assert from 'assert';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { type Item, type ItemDraft } from '../models/item';
-import { ItemService, ItemValidationError } from '../services/itemService';
-import { JsonFileStore } from '../services/stores/jsonFileStore';
-import { MementoStore } from '../services/stores/mementoStore';
-import type { IItemStore } from '../services/stores/itemStore';
-import { ItemsTreeDataProvider } from '../providers/itemsTreeDataProvider';
-import { renderFormHtml } from '../webview/formHtml';
-import { FORM_SCHEMA } from '../webview/formSchema';
-import { environmentTask } from '../tasks/environmentTask';
-import { TaskRunner } from '../tasks/taskRunner';
-import type { StartupTask } from '../tasks/types';
-import { BuildService } from '../features/build/buildService';
+import * as assert from 'assert'
+import * as cp from 'child_process'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+import * as vscode from 'vscode'
+import { type Item, type ItemDraft } from '../models/item'
+import { ItemService, ItemValidationError } from '../services/itemService'
+import { JsonFileStore, StoreCorruptedError } from '../services/stores/jsonFileStore'
+import { MementoStore } from '../services/stores/mementoStore'
+import type { IItemStore } from '../services/stores/itemStore'
+import { ItemsTreeDataProvider } from '../providers/itemsTreeDataProvider'
+import { environmentTask } from '../tasks/environmentTask'
+import { TaskRunner } from '../tasks/taskRunner'
+import type { StartupTask, TaskResult } from '../tasks/types'
+import { BuildService } from '../features/build/buildService'
 import {
   FEATURE_FLAGS,
   getFeatureValue,
   setFeatureValue,
   toFormFields,
-} from '../features/featureConfig/featureFlags';
-import { InitService } from '../features/init/initService';
-import type { InitStep } from '../features/init/initSteps';
-import { StaticConfigService } from '../features/staticConfig/staticConfigService';
+} from '../features/featureConfig/featureFlags'
+import { InitService } from '../features/init/initService'
+import type { InitStep } from '../features/init/initSteps'
+import { StaticConfigService } from '../features/staticConfig/staticConfigService'
 
 /** 测试用内存数据源：验证服务层逻辑，不依赖文件系统。 */
 class MemoryStore implements IItemStore {
-  data: Item[] = [];
+  data: Item[] = []
 
   async load(): Promise<Item[]> {
-    return this.data.map((item) => ({ ...item }));
+    return this.data.map((item) => ({ ...item }))
   }
 
   async save(items: Item[]): Promise<void> {
-    this.data = items.map((item) => ({ ...item }));
+    this.data = items.map((item) => ({ ...item }))
   }
 }
 
 function draft(name: string, extra: Partial<ItemDraft> = {}): ItemDraft {
-  return { name, category: '', description: '', priority: 'medium', tags: [], ...extra };
+  return { name, category: '', description: '', priority: 'medium', tags: [], ...extra }
+}
+
+/**
+ * 清理测试临时目录。Windows 下 git 仓库的 .git 对象文件为只读，rmSync 会 EPERM——
+ * 失败时先递归清除只读位再删（测试卫生规约：临时目录必须清理）。
+ */
+function rmTempDir(dir: string): void {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true })
+    return
+  } catch {
+    // 落入下方只读位清理流程
+  }
+  const clearReadOnly = (current: string): void => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const child = path.join(current, entry.name)
+      if (entry.isDirectory()) {
+        clearReadOnly(child)
+      } else {
+        try {
+          fs.chmodSync(child, 0o666)
+        } catch {
+          // 尽力而为
+        }
+      }
+    }
+  }
+  clearReadOnly(dir)
+  fs.rmSync(dir, { recursive: true, force: true })
 }
 
 suite('ItemService 增删改查', () => {
-  let service: ItemService;
+  let service: ItemService
 
   setup(() => {
-    service = new ItemService(new MemoryStore());
-  });
+    service = new ItemService(new MemoryStore())
+  })
 
   test('新增后可查询到条目，字段被清洗（标签去重去空白）', async () => {
     const item = await service.create(
       draft('任务A', { category: '工作', priority: 'high', tags: [' x ', 'y', 'x'] })
-    );
-    const all = await service.list();
-    assert.strictEqual(all.length, 1);
-    assert.strictEqual(all[0].id, item.id);
-    assert.deepStrictEqual(item.tags, ['x', 'y']);
-  });
+    )
+    const all = await service.list()
+    assert.strictEqual(all.length, 1)
+    assert.strictEqual(all[0].id, item.id)
+    assert.deepStrictEqual(item.tags, ['x', 'y'])
+  })
 
   test('名称为空时创建失败（ItemValidationError）', async () => {
-    await assert.rejects(() => service.create(draft('   ')), ItemValidationError);
-  });
+    await assert.rejects(() => service.create(draft('   ')), ItemValidationError)
+  })
 
   test('更新条目：updatedAt 变化而 createdAt 不变', async () => {
-    const created = await service.create(draft('旧名'));
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    const updated = await service.update(created.id, draft('新名', { description: 'd' }));
-    assert.strictEqual(updated.name, '新名');
-    assert.strictEqual(updated.createdAt, created.createdAt);
-    assert.notStrictEqual(updated.updatedAt, created.updatedAt);
-  });
+    const created = await service.create(draft('旧名'))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    const updated = await service.update(created.id, draft('新名', { description: 'd' }))
+    assert.strictEqual(updated.name, '新名')
+    assert.strictEqual(updated.createdAt, created.createdAt)
+    assert.notStrictEqual(updated.updatedAt, created.updatedAt)
+  })
 
   test('删除条目；重复删除返回 undefined', async () => {
-    const created = await service.create(draft('待删'));
-    const removed = await service.remove(created.id);
-    assert.ok(removed);
-    const again = await service.remove(created.id);
-    assert.strictEqual(again, undefined);
-    assert.strictEqual((await service.list()).length, 0);
-  });
+    const created = await service.create(draft('待删'))
+    const removed = await service.remove(created.id)
+    assert.ok(removed)
+    const again = await service.remove(created.id)
+    assert.strictEqual(again, undefined)
+    assert.strictEqual((await service.list()).length, 0)
+  })
 
   test('更新条目可修改优先级', async () => {
-    const created = await service.create(draft('P'));
-    const updated = await service.update(created.id, draft('P', { priority: 'high' }));
-    assert.strictEqual(updated.priority, 'high');
-  });
+    const created = await service.create(draft('P'))
+    const updated = await service.update(created.id, draft('P', { priority: 'high' }))
+    assert.strictEqual(updated.priority, 'high')
+  })
 
   test('克隆条目名称带（副本）后缀', async () => {
-    const created = await service.create(draft('原始', { category: '工作' }));
-    const copy = await service.duplicate(created.id);
-    assert.strictEqual(copy.name, '原始（副本）');
-    assert.strictEqual(copy.category, '工作');
-    assert.notStrictEqual(copy.id, created.id);
-  });
+    const created = await service.create(draft('原始', { category: '工作' }))
+    const copy = await service.duplicate(created.id)
+    assert.strictEqual(copy.name, '原始（副本）')
+    assert.strictEqual(copy.category, '工作')
+    assert.notStrictEqual(copy.id, created.id)
+  })
 
   test('过滤：按关键字匹配，清空后恢复全量', async () => {
-    await service.create(draft('前端重构', { tags: ['web'] }));
-    await service.create(draft('后端接口', { tags: ['api'] }));
-    service.setFilter('api');
-    const filtered = await service.list();
-    assert.strictEqual(filtered.length, 1);
-    assert.strictEqual(filtered[0].name, '后端接口');
-    service.setFilter('');
-    assert.strictEqual((await service.list()).length, 2);
-  });
+    await service.create(draft('前端重构', { tags: ['web'] }))
+    await service.create(draft('后端接口', { tags: ['api'] }))
+    service.setFilter('api')
+    const filtered = await service.list()
+    assert.strictEqual(filtered.length, 1)
+    assert.strictEqual(filtered[0].name, '后端接口')
+    service.setFilter('')
+    assert.strictEqual((await service.list()).length, 2)
+  })
 
   test('getCategories 返回去重后的分类', async () => {
-    await service.create(draft('A', { category: '工作' }));
-    await service.create(draft('B', { category: '工作' }));
-    await service.create(draft('C', { category: '生活' }));
-    assert.deepStrictEqual(await service.getCategories(), ['工作', '生活']);
-  });
-});
+    await service.create(draft('A', { category: '工作' }))
+    await service.create(draft('B', { category: '工作' }))
+    await service.create(draft('C', { category: '生活' }))
+    assert.deepStrictEqual(await service.getCategories(), ['工作', '生活'])
+  })
+})
 
 suite('启动任务框架', () => {
   function fakeTask(id: string, title: string, behavior: () => Promise<void>): StartupTask {
@@ -120,7 +148,7 @@ suite('启动任务框架', () => {
       id,
       title,
       async run() {
-        await behavior();
+        await behavior()
         return {
           taskId: id,
           taskTitle: title,
@@ -128,75 +156,100 @@ suite('启动任务框架', () => {
           durationMs: 1,
           finishedAt: new Date().toISOString(),
           items: [{ label: '示例', description: '1.0.0', status: 'ok' }],
-        };
+        }
       },
-    };
+    }
   }
 
-  test('TaskRunner 依次执行任务并发出变更事件', async () => {
-    let runs = 0;
+  test('TaskRunner 依次执行任务并发出变更事件（逐任务事件，任务数 + 2）', async () => {
+    let runs = 0
     const task = fakeTask('demo', '演示任务', async () => {
-      runs++;
-    });
-    const runner = new TaskRunner([task], vscode.window.createOutputChannel('CRUD Starter Test'));
-    let events = 0;
-    runner.onDidChangeItems(() => events++);
-    await runner.runAll();
-    assert.strictEqual(runs, 1);
-    assert.strictEqual(events, 2); // 开始一次 + 结束一次
-    assert.strictEqual(runner.lastResults.length, 1);
-    assert.strictEqual(runner.lastResults[0].items[0].label, '示例');
-  });
+      runs++
+    })
+    const runner = new TaskRunner([task], vscode.window.createOutputChannel('CRUD Starter Test'))
+    let events = 0
+    runner.onDidChangeItems(() => events++)
+    await runner.runAll()
+    assert.strictEqual(runs, 1)
+    // T5.4 事件节奏：开始一次 + 每个任务完成后一次 + 结束一次（1 个任务 → 3 次）
+    assert.strictEqual(events, 3)
+    assert.strictEqual(runner.lastResults.length, 1)
+    assert.strictEqual(runner.lastResults[0].items[0].label, '示例')
+  })
 
   test('任务抛错时降级为 error 结果且不影响后续任务', async () => {
     const boom = fakeTask('boom', '爆炸任务', async () => {
-      throw new Error('boom');
-    });
-    const okTask = fakeTask('ok', '正常任务', async () => undefined);
+      throw new Error('boom')
+    })
+    const okTask = fakeTask('ok', '正常任务', async () => undefined)
     const runner = new TaskRunner(
       [boom, okTask],
       vscode.window.createOutputChannel('CRUD Starter Test')
-    );
-    await runner.runAll();
-    assert.strictEqual(runner.lastResults.length, 2);
-    assert.strictEqual(runner.lastResults[0].status, 'error');
-    assert.strictEqual(runner.lastResults[1].status, 'ok');
-  });
+    )
+    await runner.runAll()
+    assert.strictEqual(runner.lastResults.length, 2)
+    assert.strictEqual(runner.lastResults[0].status, 'error')
+    assert.strictEqual(runner.lastResults[1].status, 'ok')
+  })
 
-  test('环境检测任务能探测到 Node.js（npm test 运行前提）', async () => {
+  test('环境检测产出语义化结果（Node.js 必检到；Python/Git 状态合法即可）', async () => {
     const runner = new TaskRunner(
       [environmentTask],
       vscode.window.createOutputChannel('CRUD Starter Test')
-    );
-    await runner.runAll();
-    const env = runner.lastResults[0];
-    const node = env.items.find((item) => item.label === 'Node.js');
-    assert.ok(node, '应包含 Node.js 条目');
-    assert.strictEqual(node.status, 'ok');
-    assert.match(node.description ?? '', /^v/);
-    assert.ok(env.items.some((item) => item.label === 'Python'));
-    assert.ok(env.items.some((item) => item.label === 'Git'));
-  });
-});
+    )
+    await runner.runAll()
+    const env = runner.lastResults[0]
+    // Node.js 是 npm test 自身的运行前提：必须 ok 且版本号以 v 开头
+    const node = env.items.find((item) => item.label === 'Node.js')
+    assert.ok(node, '应包含 Node.js 条目')
+    assert.strictEqual(node.status, 'ok')
+    assert.match(node.description ?? '', /^v/)
+    // Python / Git 依赖开发机真实安装：条目必须存在，状态只要求语义合法（P1-13 修复：
+    // 不再断言「标签存在即通过」的恒真条件，无 Python 的机器上为 missing）
+    for (const label of ['Python', 'Git']) {
+      const entry = env.items.find((item) => item.label === label)
+      assert.ok(entry, `应包含 ${label} 条目`)
+      assert.ok(
+        entry.status === 'ok' || entry.status === 'missing',
+        `${label} 状态应为 ok/missing（实际：${entry.status}）`
+      )
+    }
+  })
+
+  test('任务超时被裁决为 error「任务超时」（T5.4 / P1-11）', async () => {
+    const hang: StartupTask = {
+      id: 'hang',
+      title: '挂死任务',
+      timeoutMs: 100,
+      run: () => new Promise<TaskResult>(() => undefined), // 永不完成
+    }
+    const runner = new TaskRunner([hang], vscode.window.createOutputChannel('CRUD Starter Test'))
+    await runner.runAll()
+    assert.strictEqual(runner.lastResults.length, 1)
+    assert.strictEqual(runner.lastResults[0].status, 'error')
+    assert.match(runner.lastResults[0].summary ?? '', /任务超时/)
+    assert.strictEqual(runner.isRunning, false)
+  })
+})
 
 suite('特性配置', () => {
   test('开关读写走全局设置并可还原', async () => {
-    const original = getFeatureValue('confirmDelete');
-    await setFeatureValue('confirmDelete', !original);
-    assert.strictEqual(getFeatureValue('confirmDelete'), !original);
-    await setFeatureValue('confirmDelete', original);
-    assert.strictEqual(getFeatureValue('confirmDelete'), original);
-  });
+    const original = getFeatureValue('confirmDelete')
+    await setFeatureValue('confirmDelete', !original)
+    assert.strictEqual(getFeatureValue('confirmDelete'), !original)
+    await setFeatureValue('confirmDelete', original)
+    assert.strictEqual(getFeatureValue('confirmDelete'), original)
+  })
 
   test('toFormFields 生成 boolean 表单字段（供配置页面复用表单框架）', () => {
-    const fields = toFormFields();
-    assert.strictEqual(fields.length, FEATURE_FLAGS.length);
+    const fields = toFormFields()
+    assert.strictEqual(fields.length, FEATURE_FLAGS.length)
     for (const field of fields) {
-      assert.strictEqual(field.type, 'boolean');
-      assert.ok(['true', 'false'].includes(field.defaultValue ?? ''));
+      assert.strictEqual(field.type, 'boolean')
+      assert.ok(['true', 'false'].includes(field.defaultValue ?? ''))
     }
-  });
-});
+  })
+})
 
 suite('环境初始化', () => {
   test('步骤顺序执行：失败不阻断后续步骤', async () => {
@@ -207,73 +260,119 @@ suite('环境初始化', () => {
         title: 'B',
         description: '',
         run: async () => {
-          throw new Error('bad');
+          throw new Error('bad')
         },
       },
       { id: 'c', title: 'C', description: '', run: async () => 'ok-c' },
-    ];
-    const output = vscode.window.createOutputChannel('CRUD Starter Test');
-    const svc = new InitService(steps, output, new StaticConfigService(output, () => undefined));
-    await svc.runAll();
-    const states = svc.getStates();
-    assert.strictEqual(states[0].status, 'done');
-    assert.strictEqual(states[0].message, 'ok-a');
-    assert.strictEqual(states[1].status, 'failed');
-    assert.strictEqual(states[1].message, 'bad');
-    assert.strictEqual(states[2].status, 'done');
-  });
-});
+    ]
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    const svc = new InitService(steps, output, new StaticConfigService(output, () => undefined))
+    await svc.runAll()
+    const states = svc.getStates()
+    assert.strictEqual(states[0].status, 'done')
+    assert.strictEqual(states[0].message, 'ok-a')
+    assert.strictEqual(states[1].status, 'failed')
+    assert.strictEqual(states[1].message, 'bad')
+    assert.strictEqual(states[2].status, 'done')
+  })
+
+  test('runStep 在 runAll 执行期间被忽略（T5.4 / P1-12 单步互斥）', async () => {
+    let releaseFirst!: () => void
+    const steps: InitStep[] = [
+      {
+        id: 'a',
+        title: 'A',
+        description: '',
+        run: () =>
+          new Promise<string>((resolve) => {
+            releaseFirst = () => resolve('ok-a')
+          }),
+      },
+      { id: 'b', title: 'B', description: '', run: async () => 'ok-b' },
+    ]
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    const svc = new InitService(steps, output, new StaticConfigService(output, () => undefined))
+    const running = svc.runAll()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    assert.strictEqual(svc.isRunning, true)
+    await svc.runStep('b') // runAll 进行中：被忽略
+    assert.strictEqual(svc.getStates().find((state) => state.id === 'b')?.status, 'idle')
+    releaseFirst()
+    await running
+    assert.strictEqual(svc.getStates().find((state) => state.id === 'b')?.status, 'done')
+  })
+})
 
 suite('静态配置', () => {
   test('ensureDefault 生成默认配置并可加载为分组条目', async () => {
-    const dir = path.join(os.tmpdir(), `crud-static-test-${Date.now()}`);
-    const root = vscode.Uri.file(dir);
-    const output = vscode.window.createOutputChannel('CRUD Starter Test');
-    const svc = new StaticConfigService(output, () => root);
+    const dir = path.join(os.tmpdir(), `crud-static-test-${Date.now()}`)
+    const root = vscode.Uri.file(dir)
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    const svc = new StaticConfigService(output, () => root)
     try {
-      assert.strictEqual(await svc.ensureDefault(), 'created');
-      assert.strictEqual(await svc.ensureDefault(), 'exists');
-      await svc.load();
-      const sections = svc.getSections();
-      assert.ok(sections.length >= 3, '应至少包含 project/build/runtime 三个分组');
-      const build = sections.find((section) => section.title === 'build');
-      assert.ok(build, '应包含 build 分组');
-      const outputDir = build.entries.find((entry) => entry.key === 'outputDir');
-      assert.strictEqual(outputDir?.value, 'dist');
+      assert.strictEqual(await svc.ensureDefault(), 'created')
+      assert.strictEqual(await svc.ensureDefault(), 'exists')
+      await svc.load()
+      const sections = svc.getSections()
+      assert.ok(sections.length >= 3, '应至少包含 project/build/runtime 三个分组')
+      const build = sections.find((section) => section.title === 'build')
+      assert.ok(build, '应包含 build 分组')
+      const outputDir = build.entries.find((entry) => entry.key === 'outputDir')
+      assert.strictEqual(outputDir?.value, 'dist')
     } finally {
       // 清理临时目录，避免多次运行测试后残留
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true })
     }
-  });
+  })
 
   test('flatten 拍平嵌套 JSON 为分组条目', () => {
-    const sections = StaticConfigService.flatten({ name: 'demo', nested: { a: 1, b: true } });
-    assert.strictEqual(sections[0].entries[0].value, 'demo');
-    const nested = sections.find((section) => section.title === 'nested');
+    const sections = StaticConfigService.flatten({ name: 'demo', nested: { a: 1, b: true } })
+    assert.strictEqual(sections[0].entries[0].value, 'demo')
+    const nested = sections.find((section) => section.title === 'nested')
     assert.deepStrictEqual(
       nested?.entries.map((entry) => entry.key),
       ['a', 'b']
-    );
-  });
-});
+    )
+  })
+})
 
 suite('分支编译', () => {
-  test('getGitInfo 识别当前仓库与 main 分支', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test');
-    const svc = new BuildService(output, () => path.resolve(__dirname, '..', '..'));
-    const info = await svc.getGitInfo();
-    assert.strictEqual(info.available, true);
-    assert.ok(info.branches.includes('main'));
-    assert.strictEqual(info.current, 'main');
-  });
+  test('getGitInfo 识别临时 git 仓库的分支清单与当前分支', async () => {
+    // P1-13 修复：用临时 git fixture 替代「断言本仓库必须在 main 分支」——
+    // 在 os.tmpdir 下自建仓库（初始分支 main + 额外分支），不再依赖开发机的分支状态
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'crud-git-fixture-'))
+    const git = (args: string[]): void => {
+      cp.execFileSync('git', args, { cwd: dir })
+    }
+    try {
+      git(['init'])
+      git(['symbolic-ref', 'HEAD', 'refs/heads/main']) // 兼容 git 默认分支名不同的环境
+      git(['config', 'user.email', 'test@example.com'])
+      git(['config', 'user.name', 'CRUD Test'])
+      fs.writeFileSync(path.join(dir, 'readme.md'), '# fixture\n')
+      git(['add', '.'])
+      git(['commit', '-m', 'init'])
+      git(['branch', 'feature-demo'])
+
+      const output = vscode.window.createOutputChannel('CRUD Starter Test')
+      const svc = new BuildService(output, () => dir)
+      const info = await svc.getGitInfo()
+      assert.strictEqual(info.available, true)
+      assert.strictEqual(info.current, 'main')
+      assert.ok(info.branches.includes('main'), '应包含初始分支 main')
+      assert.ok(info.branches.includes('feature-demo'), '应包含新建分支 feature-demo')
+    } finally {
+      rmTempDir(dir)
+    }
+  })
 
   test('非 Git 目录返回 available=false 而不抛错', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test');
-    const svc = new BuildService(output, () => os.tmpdir());
-    const info = await svc.getGitInfo();
-    assert.strictEqual(info.available, false);
-  });
-});
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    const svc = new BuildService(output, () => os.tmpdir())
+    const info = await svc.getGitInfo()
+    assert.strictEqual(info.available, false)
+  })
+})
 
 suite('JsonFileStore', () => {
   function sampleItem(id: string, name: string): Item {
@@ -286,51 +385,79 @@ suite('JsonFileStore', () => {
       tags: ['t'],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    };
+    }
   }
 
   test('文件不存在返回空数组；save→load 往返一致', async () => {
-    const dir = path.join(os.tmpdir(), `crud-store-test-${Date.now()}`);
-    const store = new JsonFileStore(vscode.Uri.file(path.join(dir, 'data', 'items.json')));
+    const dir = path.join(os.tmpdir(), `crud-store-test-${Date.now()}`)
+    const store = new JsonFileStore(vscode.Uri.file(path.join(dir, 'data', 'items.json')))
     try {
-      assert.deepStrictEqual(await store.load(), []);
-      const items = [sampleItem('1', '甲'), sampleItem('2', '乙')];
-      await store.save(items);
-      assert.deepStrictEqual(await store.load(), items);
+      assert.deepStrictEqual(await store.load(), [])
+      const items = [sampleItem('1', '甲'), sampleItem('2', '乙')]
+      await store.save(items)
+      assert.deepStrictEqual(await store.load(), items)
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true })
     }
-  });
+  })
 
-  test('文件损坏时备份原文件并从空数据开始', async () => {
-    const dir = path.join(os.tmpdir(), `crud-store-corrupt-${Date.now()}`);
-    const fileUri = vscode.Uri.file(path.join(dir, 'items.json'));
-    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'));
-    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('{corrupt', 'utf8'));
+  test('文件损坏时按决策继续：continue-empty 返回空数据，原文件保留且生成 .bak（T1.2 新语义）', async () => {
+    const dir = path.join(os.tmpdir(), `crud-store-corrupt-${Date.now()}`)
+    const fileUri = vscode.Uri.file(path.join(dir, 'items.json'))
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
+    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('{corrupt', 'utf8'))
     try {
-      const store = new JsonFileStore(fileUri);
-      assert.deepStrictEqual(await store.load(), []);
-      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(fileUri, '..'));
-      assert.ok(entries.some(([name]) => name.endsWith('.bak')), '应生成损坏备份文件');
-      assert.ok(!entries.some(([name]) => name === 'items.json'), '原损坏文件应已移走');
+      const store = new JsonFileStore(fileUri, { onCorrupted: async () => 'continue-empty' })
+      assert.deepStrictEqual(await store.load(), [])
+      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(fileUri, '..'))
+      assert.ok(
+        entries.some(([name]) => name.endsWith('.bak')),
+        '应生成损坏备份文件'
+      )
+      assert.ok(
+        entries.some(([name]) => name === 'items.json'),
+        '原损坏文件应保留在原位（复制备份，不移走）'
+      )
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true })
     }
-  });
-});
+  })
+
+  test('未注入 onCorrupted 回调时 rejects StoreCorruptedError（原文件与备份保留）', async () => {
+    const dir = path.join(os.tmpdir(), `crud-store-corrupt-noop-${Date.now()}`)
+    const fileUri = vscode.Uri.file(path.join(dir, 'items.json'))
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
+    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('{corrupt', 'utf8'))
+    try {
+      const store = new JsonFileStore(fileUri)
+      await assert.rejects(() => store.load(), StoreCorruptedError)
+      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(fileUri, '..'))
+      assert.ok(
+        entries.some(([name]) => name.endsWith('.bak')),
+        '应生成损坏备份文件'
+      )
+      assert.ok(
+        entries.some(([name]) => name === 'items.json'),
+        '原损坏文件应保留在原位'
+      )
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
 
 suite('MementoStore', () => {
   test('读写往返（模拟 Memento）', async () => {
-    const backing = new Map<string, unknown>();
+    const backing = new Map<string, unknown>()
     const memento = {
       get: (key: string, defaultValue?: unknown) =>
         backing.has(key) ? backing.get(key) : defaultValue,
       update: async (key: string, value: unknown) => {
-        backing.set(key, value);
+        backing.set(key, value)
       },
-    } as unknown as vscode.Memento;
-    const store = new MementoStore(memento, 'test.key');
-    assert.deepStrictEqual(await store.load(), []);
+    } as unknown as vscode.Memento
+    const store = new MementoStore(memento, 'test.key')
+    assert.deepStrictEqual(await store.load(), [])
     await store.save([
       {
         id: '1',
@@ -342,74 +469,76 @@ suite('MementoStore', () => {
         createdAt: '',
         updatedAt: '',
       },
-    ]);
-    assert.strictEqual((await store.load()).length, 1);
-  });
-});
+    ])
+    assert.strictEqual((await store.load()).length, 1)
+  })
+})
 
 suite('条目树视图', () => {
   test('按分类分组，子节点归属正确', async () => {
-    const service = new ItemService(new MemoryStore());
-    await service.create(draft('甲', { category: '工作' }));
-    await service.create(draft('乙', { category: '工作' }));
-    await service.create(draft('丙', { category: '生活' }));
-    const provider = new ItemsTreeDataProvider(service);
+    const service = new ItemService(new MemoryStore())
+    await service.create(draft('甲', { category: '工作' }))
+    await service.create(draft('乙', { category: '工作' }))
+    await service.create(draft('丙', { category: '生活' }))
+    const provider = new ItemsTreeDataProvider(service)
 
-    const roots = await provider.getChildren();
-    const work = roots.find((node) => node.kind === 'category' && node.label === '工作');
-    assert.ok(work && work.kind === 'category' && work.count === 2, '「工作」分组应有 2 项');
-    const life = roots.find((node) => node.kind === 'category' && node.label === '生活');
-    assert.ok(life && life.kind === 'category' && life.count === 1);
+    const roots = await provider.getChildren()
+    const work = roots.find((node) => node.kind === 'category' && node.label === '工作')
+    assert.ok(work && work.kind === 'category' && work.count === 2, '「工作」分组应有 2 项')
+    const life = roots.find((node) => node.kind === 'category' && node.label === '生活')
+    assert.ok(life && life.kind === 'category' && life.count === 1)
 
-    const children = await provider.getChildren({ kind: 'category', label: '工作', count: 2 });
-    assert.strictEqual(children.length, 2);
-    assert.ok(children.every((node) => node.kind === 'item'));
+    const children = await provider.getChildren({ kind: 'category', label: '工作', count: 2 })
+    assert.strictEqual(children.length, 2)
+    assert.ok(children.every((node) => node.kind === 'item'))
     assert.deepStrictEqual(
       children.map((node) => (node.kind === 'item' ? node.item.name : '')),
       ['甲', '乙']
-    );
-  });
+    )
+  })
 
   test('过滤生效时平铺展示匹配项', async () => {
-    const service = new ItemService(new MemoryStore());
-    await service.create(draft('前端重构', { tags: ['web'] }));
-    await service.create(draft('后端接口', { tags: ['api'] }));
-    service.setFilter('api');
-    const provider = new ItemsTreeDataProvider(service);
-    const roots = await provider.getChildren();
-    assert.strictEqual(roots.length, 1);
-    assert.ok(roots[0].kind === 'item' && roots[0].item.name === '后端接口');
-    assert.ok(service.filtered);
-  });
-});
-
-suite('表单渲染器', () => {
-  test('条目 Schema：CSP nonce / 必填标记 / datalist 声明化渲染', () => {
-    const html = renderFormHtml({ title: '新增条目', schema: FORM_SCHEMA });
-    assert.ok(html.includes("script-src 'nonce-"), 'script nonce 缺失');
-    assert.ok(html.includes("style-src 'nonce-"), 'style nonce 缺失');
-    assert.ok(html.includes('list="category-list"'), 'datalist 应由 Schema 的 datalist 属性渲染');
-    assert.ok(html.includes('class="required"'), '必填标记缺失');
-    assert.ok(!html.includes('${'), '存在未解析插值');
-    assert.ok(html.includes('<form id="crud-form" novalidate>'), '缺少 novalidate');
-  });
-
-  test('boolean 开关字段渲染（特性配置页复用）', () => {
-    const fields = toFormFields();
-    const html = renderFormHtml({ title: '特性配置', schema: fields });
-    for (const field of fields) {
-      assert.ok(html.includes(`type="checkbox" id="field-${field.key}"`), `开关缺失: ${field.key}`);
-    }
-    assert.ok(html.includes('schema = msg.schema || []'), 'schema 应由 init 消息驱动');
-  });
-});
+    const service = new ItemService(new MemoryStore())
+    await service.create(draft('前端重构', { tags: ['web'] }))
+    await service.create(draft('后端接口', { tags: ['api'] }))
+    service.setFilter('api')
+    const provider = new ItemsTreeDataProvider(service)
+    const roots = await provider.getChildren()
+    assert.strictEqual(roots.length, 1)
+    assert.ok(roots[0].kind === 'item' && roots[0].item.name === '后端接口')
+    assert.ok(service.filtered)
+  })
+})
 
 suite('分支编译（补充）', () => {
   test('未打开工作区时返回 error 结果而不抛错', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test');
-    const svc = new BuildService(output, () => undefined);
-    const result = await svc.build();
-    assert.strictEqual(result.status, 'error');
-    assert.match(result.message, /未打开工作区/);
-  });
-});
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    const svc = new BuildService(output, () => undefined)
+    const result = await svc.build()
+    assert.strictEqual(result.status, 'error')
+    assert.match(result.message, /未打开工作区/)
+  })
+
+  test('并发 build 被互斥拒绝（T5.4 / P1-10）：第二次返回「已有编译任务进行中」', async () => {
+    const output = vscode.window.createOutputChannel('CRUD Starter Test')
+    let releaseBuild!: (value: string) => void
+    const blocked = new Promise<string>((resolve) => {
+      releaseBuild = resolve
+    })
+    // 注入假执行器：npm run package 挂起等待手动放行，其余命令（git 查询 / vsce 探测）直接成功
+    const svc = new BuildService(output, () => path.resolve(__dirname, '..', '..'), {
+      runCommand: async (spec) =>
+        spec.args.includes('run') && spec.args.includes('package') ? blocked : '\n',
+    })
+    const first = svc.build()
+    await new Promise((resolve) => setTimeout(resolve, 100)) // 等流程推进到构建步骤
+    assert.strictEqual(svc.isRunning, true)
+    const second = await svc.build()
+    assert.strictEqual(second.status, 'error')
+    assert.match(second.message, /已有编译任务进行中/)
+    releaseBuild('build ok')
+    const firstResult = await first
+    assert.strictEqual(firstResult.status, 'ok')
+    assert.strictEqual(svc.isRunning, false)
+  })
+})

@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import { CONFIG } from '../../constants';
-import type { FormField } from '../../webview/formSchema';
+import * as vscode from 'vscode'
+import { CONFIG } from '../../constants'
+import type { FormField } from '../../webview/formSchema'
 
 /**
  * 特性开关定义：单一来源。
@@ -9,10 +9,10 @@ import type { FormField } from '../../webview/formSchema';
  * - package.json 的 crudStarter.features.* 与此保持一致（用于设置界面与默认值声明）。
  */
 export interface FeatureFlag {
-  key: string;
-  label: string;
-  description?: string;
-  defaultValue: boolean;
+  key: string
+  label: string
+  description?: string
+  defaultValue: boolean
 }
 
 export const FEATURE_FLAGS: FeatureFlag[] = [
@@ -46,34 +46,43 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
     description: '数据文件 / 静态配置被外部修改时自动重新加载',
     defaultValue: true,
   },
-];
+]
 
 function flagFullKey(key: string): string {
-  return `${CONFIG.featuresSection}.${key}`;
+  return `${CONFIG.featuresSection}.${key}`
 }
 
 /** 读取开关当前值（设置里未配置时用默认值）。 */
 export function getFeatureValue(key: string): boolean {
-  const flag = FEATURE_FLAGS.find((item) => item.key === key);
+  const flag = FEATURE_FLAGS.find((item) => item.key === key)
   return vscode.workspace
     .getConfiguration(CONFIG.section)
-    .get<boolean>(flagFullKey(key), flag?.defaultValue ?? false);
+    .get<boolean>(flagFullKey(key), flag?.defaultValue ?? false)
 }
 
-/** 写入开关（全局用户设置）。 */
+/**
+ * 写入开关：写入 target 与生效来源一致（P1-08 修复）。
+ * - 存在工作区级覆盖（inspect().workspaceValue !== undefined）时写 Workspace，
+ *   避免旧实现固定写 Global 导致的「点击开关无变化」；
+ * - 无覆盖时维持 Global（用户设置）。
+ */
 export async function setFeatureValue(key: string, value: boolean): Promise<void> {
-  await vscode.workspace
-    .getConfiguration(CONFIG.section)
-    .update(flagFullKey(key), value, vscode.ConfigurationTarget.Global);
+  const config = vscode.workspace.getConfiguration(CONFIG.section)
+  const fullKey = flagFullKey(key)
+  const target =
+    config.inspect<boolean>(fullKey)?.workspaceValue !== undefined
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global
+  await config.update(fullKey, value, target)
 }
 
 /** 全部开关当前值（供 Webview 配置页回填）。 */
 export function getFeatureValues(): Record<string, boolean> {
-  const values: Record<string, boolean> = {};
+  const values: Record<string, boolean> = {}
   for (const flag of FEATURE_FLAGS) {
-    values[flag.key] = getFeatureValue(flag.key);
+    values[flag.key] = getFeatureValue(flag.key)
   }
-  return values;
+  return values
 }
 
 /** 特性开关 → boolean 表单字段，复用 Schema 表单框架渲染配置页面。 */
@@ -84,5 +93,5 @@ export function toFormFields(): FormField[] {
     type: 'boolean',
     defaultValue: String(flag.defaultValue),
     hint: flag.description,
-  }));
+  }))
 }

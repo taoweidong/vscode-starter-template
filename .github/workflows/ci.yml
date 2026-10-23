@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows · 完整门禁 + E2E
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 宿主集成测试（gate 第⑧步）首次运行会下载测试用 VS Code，按 lockfile 哈希缓存
+      - name: 缓存 .vscode-test
+        uses: actions/cache@v4
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: 安装依赖（npm ci）
+        run: npm ci
+
+      - name: 完整门禁（lint/格式/类型/双构建/静态一致性/单测覆盖率/宿主集成）
+        run: npm run gate
+
+      # Playwright 使用系统 Edge（windows runner 自带 msedge），无需额外安装浏览器
+      - name: Playwright 页面测试（test:e2e）
+        run: npm run test:e2e
+
+  ubuntu:
+    name: Ubuntu · 快速门禁（--fast）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖（npm ci）
+        run: npm ci
+
+      # 宿主集成测试需要 GUI（VS Code 桌面宿主），无头 Linux runner 跳过（--fast）
+      - name: 快速门禁（lint/格式/类型/双构建/静态一致性/单测覆盖率）
+        run: npm run gate -- --fast

@@ -1,5 +1,5 @@
-import { environmentTask } from './environmentTask';
-import type { StartupTask } from './types';
+import { environmentTask } from './environmentTask'
+import type { StartupTask } from './types'
 
 /**
  * 启动任务注册表：插件激活时由 TaskRunner 依次执行。
@@ -8,4 +8,4 @@ import type { StartupTask } from './types';
  * 1. 实现 StartupTask 接口（src/tasks/types.ts）；
  * 2. 在本数组中加一项。界面（环境信息视图）与调度（TaskRunner）零改动。
  */
-export const TASKS: StartupTask[] = [environmentTask];
+export const TASKS: StartupTask[] = [environmentTask]

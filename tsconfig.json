@@ -17,5 +17,14 @@
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", ".vscode-test", "dist", "out"]
+  "exclude": [
+    "node_modules",
+    ".vscode-test",
+    "dist",
+    "out",
+    "src/webview/apps",
+    "src/webview/components",
+    "src/webview/ui",
+    "src/webview/shared"
+  ]
 }

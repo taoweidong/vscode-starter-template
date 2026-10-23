@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [],
+    "jsx": "preserve",
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/webview/apps/**/*",
+    "src/webview/components/**/*",
+    "src/webview/ui/**/*",
+    "src/webview/shared/**/*",
+    "src/webview/protocol.ts",
+    "src/webview/vscode.d.ts"
+  ]
+}

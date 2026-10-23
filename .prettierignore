@@ -1,0 +1,17 @@
+# 与 eslint.config.ts 的 ignores 保持一致
+dist
+out
+node_modules
+.vscode-test
+coverage
+playwright-report
+test-results
+.zcode
+.ai-memory
+.crud-starter
+
+# 锁文件与二进制/矢量资源不做格式化
+package-lock.json
+*.svg
+*.png
+*.vsix

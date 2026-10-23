@@ -16,7 +16,7 @@ export const VIEW = {
   buildViewId: 'crudStarter.buildView',
   /** 树条目的 contextValue（用于菜单 when 条件） */
   itemContextValue: 'crudItem',
-} as const;
+} as const
 
 /** 命令 ID（与 package.json 的 contributes 保持一致）。 */
 export const COMMAND = {
@@ -74,7 +74,13 @@ export const COMMAND = {
   openStaticConfigFile: 'crudStarter.openStaticConfigFile',
   /** 分支编译：选择分支并编译出包（树条目单击 / inline 按钮 / 标题栏） */
   buildBranch: 'crudStarter.buildBranch',
-} as const;
+
+  // Webview 页面（Vue 3）
+  /** 打开批量导入向导（多步骤页面：选择来源 → 预览 → 执行 → 结果） */
+  openImportWizard: 'crudStarter.openImportWizard',
+  /** 打开组件画廊（开发用：设计系统视觉验收基准） */
+  openGallery: 'crudStarter.openGallery',
+} as const
 
 /** 配置项键名（对应设置里的 crudStarter.*）。 */
 export const CONFIG = {
@@ -84,7 +90,7 @@ export const CONFIG = {
   runStartupTasks: 'runStartupTasks',
   /** 特性开关所在的子段落（crudStarter.features.*） */
   featuresSection: 'features',
-} as const;
+} as const
 
 /** 存储相关常量。 */
 export const STORAGE = {
@@ -92,4 +98,4 @@ export const STORAGE = {
   defaultFileName: '.vscode/crud-starter-items.json',
   /** 未打开工作区时，globalState 的存储键 */
   mementoKey: 'crudStarter.items',
-} as const;
+} as const

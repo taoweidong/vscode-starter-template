@@ -6,3 +6,14 @@ out/
 .crud-starter/
 *.vsix
 .ai-memory/
+
+# 插件自身开发时产生的数据文件（T5.4 / P1-09：脏检查亦默认忽略）
+.vscode/crud-starter-items.json
+
+# 测试与覆盖率产物（M6：vitest coverage / Playwright）
+coverage/
+playwright-report/
+test-results/
+
+# AI 工具会话产物
+.zcode/

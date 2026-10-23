@@ -1,0 +1,89 @@
+/**
+ * 语义令牌表（docs/需求与优化方案/04 §2）——设计系统唯一颜色来源。
+ *
+ * 规则：
+ * - 组件只允许消费左列 `--ui-*` 令牌；
+ * - 本文件是全仓库唯一允许出现颜色回退值（#hex / rgb / hsl）的地方，
+ *   回退仅供脱离 VSCode 宿主（浏览器直开 / 单测）时兜底；
+ * - 间距刻度（04 §3：4/8/12/16/24）在此登记为常量；按钮水平内边距 14px
+ *   为 04 §3 明确规格，按 §9.4 规则登记为 `--ui-btn-pad-x`。
+ */
+:root {
+  /* ---- 文字 ---- */
+  --ui-fg: var(--vscode-foreground, #cccccc);
+  --ui-fg-muted: var(--vscode-descriptionForeground, #9d9d9d);
+  --ui-fg-disabled: var(--vscode-disabledForeground, rgba(204, 204, 204, 0.6));
+  --ui-fg-selected: var(--vscode-list-activeSelectionForeground, #ffffff);
+
+  /* ---- 背景 / 表面 ---- */
+  --ui-bg: var(--vscode-editor-background, #1e1e1e);
+  --ui-surface: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  --ui-surface-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  --ui-surface-selected: var(--vscode-list-activeSelectionBackground, #04395e);
+
+  /* ---- 边框 ---- */
+  --ui-border: var(--vscode-widget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.35)));
+
+  /* ---- 输入控件 ---- */
+  --ui-input-bg: var(--vscode-input-background, #3c3c3c);
+  --ui-input-fg: var(--vscode-input-foreground, #cccccc);
+  --ui-input-border: var(--vscode-input-border, transparent);
+  --ui-input-placeholder: var(--vscode-input-placeholderForeground, #989898);
+
+  /* ---- 按钮 ---- */
+  --ui-btn-bg: var(--vscode-button-background, #0e639c);
+  --ui-btn-fg: var(--vscode-button-foreground, #ffffff);
+  --ui-btn-bg-hover: var(--vscode-button-hoverBackground, #1177bb);
+  --ui-btn2-bg: var(--vscode-button-secondaryBackground, #3a3d41);
+  --ui-btn2-fg: var(--vscode-button-secondaryForeground, #ffffff);
+  --ui-btn2-hover: var(--vscode-button-secondaryHoverBackground, #45494e);
+
+  /* ---- 焦点 / 错误 ---- */
+  --ui-focus: var(--vscode-focusBorder, #007fd4);
+  --ui-error: var(--vscode-errorForeground, #f48771);
+  --ui-error-border: var(--vscode-inputValidation-errorBorder, #be1100);
+  --ui-error-bg: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+
+  /* ---- 复选框 ---- */
+  --ui-check-bg: var(--vscode-checkbox-background, #3c3c3c);
+  --ui-check-border: var(--vscode-checkbox-border, #3c3c3c);
+  --ui-check-fg: var(--vscode-checkbox-foreground, #cccccc);
+
+  /* ---- 徽标 / 链接 / 键帽 ---- */
+  --ui-badge-bg: var(--vscode-badge-background, #4d4d4d);
+  --ui-badge-fg: var(--vscode-badge-foreground, #ffffff);
+  --ui-link: var(--vscode-textLink-foreground, #3794ff);
+  --ui-link-active: var(--vscode-textLink-activeForeground, #3794ff);
+  --ui-kbd-border: var(--vscode-keybindingLabel-border, rgba(204, 204, 204, 0.4));
+  --ui-kbd-bg: var(--vscode-keybindingLabel-background, rgba(128, 128, 128, 0.17));
+  --ui-kbd-fg: var(--vscode-keybindingLabel-foreground, #cccccc);
+
+  /* ---- 字体 / 动效 ---- */
+  --ui-font: var(--vscode-font-family, system-ui, 'Segoe UI', sans-serif);
+  --ui-font-size: var(--vscode-font-size, 13px);
+  --ui-motion: 0.1s ease;
+
+  /* ---- 间距刻度（04 §3 / §9.4 登记处） ---- */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-6: 24px;
+  /* 04 §3：按钮内边距 4px 14px（14px 为登记刻度） */
+  --ui-btn-pad-x: 14px;
+}
+
+/* 页面基础样式：正文 13px、行高 1.5、背景透明跟随宿主 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--ui-font);
+  font-size: var(--ui-font-size);
+  line-height: 1.5;
+  color: var(--ui-fg);
+  background: var(--ui-bg);
+}

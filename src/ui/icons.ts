@@ -1,4 +1,4 @@
-import type { Priority } from '../models/item';
+import type { Priority } from '../models/item'
 
 /**
  * 优先级对应的 codicon 图标。
@@ -8,7 +8,7 @@ export const PRIORITY_ICONS: Record<Priority, string> = {
   high: 'arrow-up',
   medium: 'dash',
   low: 'arrow-down',
-};
+}
 
 /** 树条目右键 / 动态菜单共用的操作图标。 */
 export const ACTION_ICONS = {
@@ -22,4 +22,4 @@ export const ACTION_ICONS = {
   add: 'add',
   search: 'search',
   refresh: 'refresh',
-} as const;
+} as const
