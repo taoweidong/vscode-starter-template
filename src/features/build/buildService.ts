@@ -91,6 +91,7 @@ export function spawnCommand(spec: CommandSpec, token?: TaskSignal): Promise<str
     let stdout = ''
     let stderr = ''
     let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     let cancelSub: vscode.Disposable | undefined
     const settle = (action: () => void): void => {
       if (settled) {
@@ -101,7 +102,7 @@ export function spawnCommand(spec: CommandSpec, token?: TaskSignal): Promise<str
       cancelSub?.dispose()
       action()
     }
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       child.kill()
       settle(() => reject(new CommandTimeoutError(spec)))
     }, spec.timeoutMs ?? EXEC_TIMEOUT_MS)

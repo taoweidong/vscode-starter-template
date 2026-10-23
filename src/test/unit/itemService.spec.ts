@@ -65,10 +65,13 @@ describe('Vitest 基建冒烟 + ItemService 基础行为', () => {
     expect(item.tags).toEqual(['x', 'y'])
   })
 
-  it('名称为空时抛 ItemValidationError', async () => {
-    await expect(
-      service.create({ name: '   ', category: '', description: '', priority: 'medium', tags: [] })
-    ).rejects.toBeInstanceOf(ItemValidationError)
+  it('名称为空时抛 ItemValidationError，且透传 field 供页面定位控件', async () => {
+    const error = await service
+      .create({ name: '   ', category: '', description: '', priority: 'medium', tags: [] })
+      .catch((err: unknown) => err)
+    expect(error).toBeInstanceOf(ItemValidationError)
+    // field 来自 coerceDraft：webviewController 经 err.field 随 error 下发
+    expect((error as { field?: unknown }).field).toBe('name')
   })
 
   it('过滤：关键字命中后可清除', async () => {
@@ -90,6 +93,63 @@ describe('Vitest 基建冒烟 + ItemService 基础行为', () => {
     expect(await service.list()).toHaveLength(1)
     service.setFilter('')
     expect(await service.list()).toHaveLength(2)
+  })
+
+  it('过滤（索引预计算回归）：命中名称 / 分类 / 描述 / 标签，大小写不敏感，扩展字段不在范围', async () => {
+    await service.create({
+      name: '前端重构',
+      category: '工作',
+      description: '重构详情',
+      priority: 'medium',
+      tags: ['web'],
+      owner: '张三',
+    })
+    await service.create({
+      name: '后端接口',
+      category: '',
+      description: '',
+      priority: 'medium',
+      tags: [],
+    })
+    for (const keyword of ['前端', '工作', '详情', 'web', 'WEB']) {
+      service.setFilter(keyword)
+      expect(await service.list()).toHaveLength(1)
+    }
+    service.setFilter('接口')
+    expect(await service.list()).toHaveLength(1)
+    service.setFilter('不存在')
+    expect(await service.list()).toHaveLength(0)
+    service.setFilter('张三') // owner 是扩展字段：不在搜索范围（与旧行为一致）
+    expect(await service.list()).toHaveLength(0)
+    service.setFilter('')
+    expect(await service.list()).toHaveLength(2)
+  })
+
+  it('过滤索引随写入 / 缓存失效重建（update 与 reload 后按新值过滤）', async () => {
+    const item = await service.create({
+      name: '旧名',
+      category: '',
+      description: '',
+      priority: 'medium',
+      tags: [],
+    })
+    service.setFilter('旧名')
+    expect(await service.list()).toHaveLength(1)
+    await service.update(item.id, {
+      name: '新名',
+      category: '',
+      description: '',
+      priority: 'medium',
+      tags: [],
+    })
+    service.setFilter('新名')
+    expect(await service.list()).toHaveLength(1)
+    service.setFilter('旧名')
+    expect(await service.list()).toHaveLength(0)
+    // reload 后缓存与索引一并重建，过滤仍生效
+    service.reload()
+    service.setFilter('新名')
+    expect(await service.list()).toHaveLength(1)
   })
 })
 

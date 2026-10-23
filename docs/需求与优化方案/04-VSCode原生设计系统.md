@@ -47,7 +47,7 @@
 | `--ui-font-size`                                        | `font-size`（回退 13px）                                          | 正文字号                      |
 | `--ui-motion`                                           | `0.1s ease`（常量）                                               | 过渡                          |
 
-> 令牌文件是**唯一**允许出现颜色回退值（如 `rgba(128,128,128,.35)`）的地方；现状 `formHtml.ts:187,190` 的散落 rgba 在迁移时收敛至此。
+> 令牌文件是**唯一**允许出现颜色回退值（如 `rgba(128,128,128,.35)`）的地方；散落 rgba 已于 M3 收敛至本文件（原 `formHtml.ts` 已更名为 `webviewHtml.ts`）。
 
 ## 3. 基础规格（尺寸 / 字阶 / 间距）
 
@@ -158,6 +158,8 @@
 - 用途：M3 验收基准 + 后续 Playwright 截图回归的拍摄对象（可选，见 05-M6）。
 
 ## 9. 样式门禁规则（进入 `scripts/gate.ts`，M3-T3.4）
+
+已实现：`scripts/checks/style.ts`（门禁第 ⑥ 步执行）。
 
 1. `src/webview/**`（除 `ui/tokens.css`）禁止 `#[0-9a-fA-F]{3,8}\b`、`rgb(`、`hsl(`；
 2. 禁止 `v-html`、`innerHTML`（`dangerously`）赋值；

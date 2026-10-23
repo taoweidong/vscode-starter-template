@@ -4,16 +4,13 @@ import { iconClass, type IconName } from './iconNames'
 /**
  * 空态（docs/需求与优化方案/04 §4.7）：居中、muted 文案 + 一个主行动按钮（action 插槽）。
  */
-withDefaults(
-  defineProps<{
-    /** 主文案（简短说明当前为空的内容） */
-    title: string
-    /** muted 说明文字 */
-    description?: string
-    icon?: IconName
-  }>(),
-  {}
-)
+defineProps<{
+  /** 主文案（简短说明当前为空的内容） */
+  title: string
+  /** muted 说明文字 */
+  description?: string
+  icon?: IconName
+}>()
 </script>
 
 <template>
@@ -37,8 +34,8 @@ withDefaults(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-6) var(--ui-space-4);
   text-align: center;
 }
 
@@ -59,6 +56,6 @@ withDefaults(
 }
 
 .v-empty-state__action {
-  margin-top: 8px;
+  margin-top: var(--ui-space-2);
 }
 </style>

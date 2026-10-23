@@ -46,12 +46,12 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--ui-space-1);
   min-width: 72px;
-  height: 26px;
-  padding: 4px var(--ui-btn-pad-x);
+  height: var(--ui-control-height);
+  padding: var(--ui-btn-pad-y) var(--ui-btn-pad-x);
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   font-family: var(--ui-font);
   font-size: var(--ui-font-size);
   line-height: 1;
@@ -91,8 +91,8 @@ withDefaults(
 
 .v-button--icon {
   min-width: 0;
-  width: 22px;
-  height: 22px;
+  width: var(--ui-icon-button-size);
+  height: var(--ui-icon-button-size);
   padding: 0;
   background: transparent;
   color: var(--ui-fg);

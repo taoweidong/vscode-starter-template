@@ -69,6 +69,16 @@
   --ui-space-3: 12px;
   --ui-space-4: 16px;
   --ui-space-6: 24px;
+  /* ---- 几何规格（04 §3：圆角 2px / 控件高 26px 的令牌化）---- */
+  --ui-radius: 2px;
+  --ui-control-height: 26px;
+  --ui-checkbox-size: 15px;
+  --ui-icon-button-size: 22px;
+  --ui-textarea-min-height: 76px;
+  /* 04 §3：按钮内边距 4px 14px / 输入 4px 8px 的分量登记 */
+  --ui-btn-pad-y: 4px;
+  --ui-input-pad-x: 8px;
+  --ui-input-pad-y: 4px;
   /* 04 §3：按钮内边距 4px 14px（14px 为登记刻度） */
   --ui-btn-pad-x: 14px;
 }

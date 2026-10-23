@@ -10,8 +10,8 @@
  *   → ③ 宿主生产构建（scripts/build-extension.ts --production）
  *   → ④ Webview 构建（npx vite build，产出 dist/webview + manifest，供第⑥步校验）
  *   → ⑤ 测试编译（tsc → out/）
- *   → ⑥ 静态一致性检查（清单/常量/视图/命令注册/特性开关/Webview manifest，
- *      见 scripts/checks/manifest.ts）
+ *   → ⑥ 静态一致性与样式门禁检查（清单/常量/视图/命令注册/特性开关/Webview manifest，
+ *      见 scripts/checks/manifest.ts；Webview 样式规约见 scripts/checks/style.ts）
  *   → ⑦ 单元测试（npx vitest run --coverage，覆盖率阈值失败即红）
  *   → ⑧ 宿主集成测试（@vscode/test-electron，--fast 时跳过）。
  * **fail-fast：任一步骤失败立即停止后续步骤**，最终汇总表格并以非零码退出。
@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { checkManifestConsistency } from './checks/manifest'
+import { checkWebviewStyle } from './checks/style'
 
 const root = path.resolve(__dirname, '..')
 process.chdir(root)
@@ -102,10 +103,11 @@ const steps: StepDef[] = [
     run: (timeout) => exec('npx tsc -p . --outDir out', timeout),
   },
   {
-    name: '6/8 静态一致性检查（清单/常量/视图/命令注册/特性开关）',
+    name: '6/8 静态一致性与样式门禁检查',
     run: () => {
+      checkWebviewStyle(root)
       checkManifestConsistency(root)
-      return '清单、常量、视图 when、命令注册、特性开关、图标、Webview manifest 全部闭合'
+      return 'Webview 样式门禁通过；清单、常量、视图 when、命令注册、特性开关、图标、Webview manifest 全部闭合'
     },
   },
   {

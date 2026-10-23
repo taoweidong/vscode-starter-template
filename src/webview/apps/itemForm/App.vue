@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ComponentPublicInstance } from 'vue'
-import { isHostMessage, type HostMessage } from '../../protocol'
+import { computed, nextTick, ref, watch } from 'vue'
+import type { HostMessage } from '../../protocol'
 import { useVsCodeApi } from '../../shared/useVsCodeApi'
 import { schemaDefaults, toFormFields } from '../../components/fieldAdapter'
 import type { FormField } from '../../formSchema'
+import { useFormPage } from '../../composables/useFormPage'
+import { stableStringify } from '../../shared/stableStringify'
 import SchemaForm from '../../components/SchemaForm.vue'
 import AppShell from '../../ui/AppShell.vue'
 import VButton from '../../ui/VButton.vue'
@@ -18,9 +19,18 @@ import VButton from '../../ui/VButton.vue'
  * - dirty 上报：值与初始值出现差异时 postMessage {type:'dirty'}；
  * - 保存成功（submitAck）后清除草稿并复位 dirty（面板由宿主关闭）；
  * - 键盘（SchemaForm 内）：Esc 取消、Ctrl+Enter 提交、IME 组合中忽略。
+ *
+ * 宿主消息监听 / ready 上报 / init·submitAck·error 分发由 useFormPage 编排，
+ * 本页只保留差异逻辑：草稿恢复、categories/datalist、draft 防抖与卸载清理。
  */
 
 type FormMode = 'create' | 'edit'
+
+/** SchemaForm 暴露面（defineExpose 的类型化引用，替代结构断言）。 */
+interface SchemaFormInstance {
+  validate: () => boolean
+  focusFirst: () => void
+}
 
 interface PersistedDraft {
   draft: Record<string, unknown>
@@ -40,12 +50,9 @@ const value = ref<Record<string, unknown>>({})
 /** 干净基线：dirty = 当前值 ≠ 基线 */
 const baseline = ref<Record<string, unknown>>({})
 const fieldErrors = ref<Record<string, string>>({})
-const hostError = ref('')
-const submitting = ref(false)
 const restoredFromDraft = ref(false)
-const initialized = ref(false)
 
-const formRef = ref<ComponentPublicInstance | null>(null)
+const formRef = ref<SchemaFormInstance | null>(null)
 
 let draftTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -55,47 +62,35 @@ const subtitle = computed(() =>
     ? '修改字段后点击「保存」即可更新该条目。'
     : '填写后点击「保存」，数据将写入当前工作区的存储。'
 )
-const dirty = computed(() => JSON.stringify(value.value) !== JSON.stringify(baseline.value))
+const dirty = computed(() => stableStringify(value.value) !== stableStringify(baseline.value))
 /** 有 datalist 声明的字段（分类建议）：页面持有 datalist 元素，输入建议来自 init 的 categories。 */
 const datalistFields = computed(() =>
   schema.value.filter((field) => typeof field.datalist === 'string')
 )
 
+const { initialized, submitting, hostError } = useFormPage({
+  onInit: applyInit,
+  onSubmitAck: () => {
+    api.setState({}) // 保存成功：清除持久化草稿
+    baseline.value = { ...value.value }
+    post({ type: 'dirty', dirty: false })
+  },
+  onError: (message) => {
+    if (message.field) {
+      fieldErrors.value = { ...fieldErrors.value, [message.field]: message.message }
+    } else {
+      hostError.value = message.message
+    }
+  },
+  onUnmount: () => {
+    if (draftTimer) {
+      clearTimeout(draftTimer)
+    }
+  },
+})
+
 function post(message: unknown): void {
   api.postMessage(message)
-}
-
-function onHostMessage(event: MessageEvent): void {
-  const message = event.data
-  if (!isHostMessage(message)) {
-    return
-  }
-  handleMessage(message)
-}
-
-function handleMessage(message: HostMessage): void {
-  switch (message.type) {
-    case 'init':
-      applyInit(message)
-      break
-    case 'submitAck':
-      submitting.value = false
-      hostError.value = ''
-      api.setState({}) // 保存成功：清除持久化草稿
-      baseline.value = { ...value.value }
-      post({ type: 'dirty', dirty: false })
-      break
-    case 'error':
-      submitting.value = false
-      if (message.field) {
-        fieldErrors.value = { ...fieldErrors.value, [message.field]: message.message }
-      } else {
-        hostError.value = message.message
-      }
-      break
-    default:
-      break // selectFolder / import* 与本页无关
-  }
 }
 
 function applyInit(message: Extract<HostMessage, { type: 'init' }>): void {
@@ -138,11 +133,8 @@ function applyInit(message: Extract<HostMessage, { type: 'init' }>): void {
 
   value.value = next
   baseline.value = clean
-  initialized.value = true
   // DOM 更新后聚焦第一个控件
-  void Promise.resolve().then(() =>
-    (formRef.value as { focusFirst?: () => void } | null)?.focusFirst?.()
-  )
+  void nextTick(() => formRef.value?.focusFirst())
 }
 
 /** 丢弃恢复的草稿，回到干净状态（watch 会随之清除持久化草稿）。 */
@@ -188,8 +180,7 @@ function requestSubmit(): void {
   if (submitting.value) {
     return
   }
-  const form = formRef.value as { validate?: () => boolean } | null
-  if (form?.validate && !form.validate()) {
+  if (formRef.value && !formRef.value.validate()) {
     return
   }
   onSubmit()
@@ -199,17 +190,12 @@ function onCancel(): void {
   post({ type: 'cancel' })
 }
 
-onMounted(() => {
-  window.addEventListener('message', onHostMessage)
-  post({ type: 'ready' })
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('message', onHostMessage)
-  if (draftTimer) {
-    clearTimeout(draftTimer)
-  }
-})
+/** 宿主字段错误随输入清除（SchemaForm 的 clearError 通知，C-10）。 */
+function onClearError(key: string): void {
+  const next = { ...fieldErrors.value }
+  delete next[key]
+  fieldErrors.value = next
+}
 </script>
 
 <template>
@@ -225,8 +211,10 @@ onBeforeUnmount(() => {
       :schema="schema"
       :errors="fieldErrors"
       :disabled="submitting"
+      :aria-label="title"
       @submit="onSubmit"
       @cancel="onCancel"
+      @clear-error="onClearError"
     ></SchemaForm>
 
     <p v-if="hostError" class="item-form__error" role="alert">{{ hostError }}</p>

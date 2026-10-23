@@ -1,19 +1,20 @@
 /**
  * 门禁「静态一致性检查」步骤：无需 VS Code 宿主的结构化校验（M6 / T6.4 去硬编码）。
  *
- * 校验 package.json 清单 ↔ src/constants.ts ↔ src/commands/index.ts ↔ 视图 when 条件
+ * 校验 package.json 清单 ↔ src/constants.ts ↔ src/commands/ ↔ 视图 when 条件
  * ↔ 特性开关 ↔ 图标资源 ↔ Webview 构建产物。
  * 面向「可改名 / 可扩展的模板」做**结构**校验（双向闭合），不断言具体项目身份：
  * - 不再断言项目名 / repository 必须包含特定字符串（P1-14）；
  * - 视图数量不做下限断言，改为 constants VIEW ↔ manifest views 双向一致 + 菜单 when
  *   中的 `view == xxx` 必须指向真实存在的视图；
  * - 命令提取正则支持数字与连字符；
- * - 新增：清单每个命令必须在 src/commands/index.ts 有 `register(COMMAND.xxx` 注册；
+ * - 新增：清单每个命令必须在 src/commands/ 下有 `register(COMMAND.xxx` 注册；
+ *   （扫描 src/commands/ 目录全部 .ts——命令可按场景拆分为多文件，注册检查不失效）；
  * - 新增：FEATURE_FLAGS（key + defaultValue）↔ `crudStarter.features.*` 配置声明双向一致；
  * - 新增：media/icon.svg 与 media/icon.png 存在（发布元数据）。
  */
 import assert from 'node:assert'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import * as path from 'node:path'
 import { createRequire } from 'node:module'
 
@@ -49,7 +50,7 @@ interface FormSchemaModule {
 
 interface FeatureFlagsModule {
   FEATURE_FLAGS: readonly { key: string; defaultValue: boolean }[]
-  toFormFields(): readonly FormFieldLike[]
+  toFeatureFormFields(): readonly FormFieldLike[]
 }
 
 interface DomainSchemaModule {
@@ -176,19 +177,21 @@ export function checkManifestConsistency(root: string): void {
     `constants VIEW.containerId 与 viewsContainers 不一致: ${containerMatch?.[1] ?? '(未找到)'}`
   )
 
-  // ---- 命令注册检查：清单每个命令必须在 commands/index.ts 有 register(COMMAND.xxx ----
-  const commandsSrc = readFileSync(path.join(root, 'src', 'commands', 'index.ts'), 'utf8')
+  // ---- 命令注册检查：清单每个命令必须在 src/commands/ 下有 register(COMMAND.xxx ----
+  // 扫描目录全部 .ts（命令可按场景拆分；旧实现硬编码 index.ts，拆分即失效）
+  const commandsDir = path.join(root, 'src', 'commands')
+  const commandsSrc = readdirSync(commandsDir)
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => readFileSync(path.join(commandsDir, file), 'utf8'))
+    .join('\n')
   const registeredKeys = new Set(
     [...commandsSrc.matchAll(/register\(\s*COMMAND\.(\w+)/g)].map((m) => m[1])
   )
   for (const [key, id] of keyToId) {
-    assert(registeredKeys.has(key), `命令未在 src/commands/index.ts 注册: ${id}（COMMAND.${key}）`)
+    assert(registeredKeys.has(key), `命令未在 src/commands/ 注册: ${id}（COMMAND.${key}）`)
   }
   for (const key of registeredKeys) {
-    assert(
-      keyToId.has(key),
-      `src/commands/index.ts 注册了 constants 未定义的命令键: COMMAND.${key}`
-    )
+    assert(keyToId.has(key), `src/commands/ 注册了 constants 未定义的命令键: COMMAND.${key}`)
   }
 
   // ---- 特性开关一致性：FEATURE_FLAGS ↔ package.json crudStarter.features.*（键与默认值双向）----
@@ -220,9 +223,9 @@ export function checkManifestConsistency(root: string): void {
     const featureFlagsMod = requireFromRoot(
       './out/features/featureConfig/featureFlags.js'
     ) as FeatureFlagsModule
-    const { toFormFields } = featureFlagsMod
+    const { toFeatureFormFields } = featureFlagsMod
     assert(FORM_SCHEMA.length >= 5, `条目表单字段数量异常: ${FORM_SCHEMA.length}`)
-    assert(toFormFields().length >= 5, '特性开关数量异常')
+    assert(toFeatureFormFields().length >= 5, '特性开关数量异常')
 
     // FORM_SCHEMA 必须由领域 Schema 派生（长度一致；派生逻辑由单测锁定）
     const { ITEM_FIELD_DEFS } = requireFromRoot('./out/domain/itemSchema.js') as DomainSchemaModule

@@ -17,6 +17,6 @@ defineProps<{ /** 可访问名称 */ label?: string }>()
 .v-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
 }
 </style>

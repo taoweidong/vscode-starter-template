@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import AppShell from '../../ui/AppShell.vue'
 import VBadge from '../../ui/VBadge.vue'
 import VButton from '../../ui/VButton.vue'
@@ -25,6 +25,7 @@ const demoSelect = ref('medium')
 const demoChecked = ref(true)
 const demoUnchecked = ref(false)
 const demoSaveLoading = ref(false)
+const demoTimer = ref<number>()
 
 const priorityOptions = [
   { value: 'high', label: '高' },
@@ -34,10 +35,16 @@ const priorityOptions = [
 
 function fakeSave(): void {
   demoSaveLoading.value = true
-  window.setTimeout(() => {
+  demoTimer.value = window.setTimeout(() => {
     demoSaveLoading.value = false
   }, 1500)
 }
+
+onBeforeUnmount(() => {
+  if (demoTimer.value !== undefined) {
+    clearTimeout(demoTimer.value)
+  }
+})
 </script>
 
 <template>
@@ -359,5 +366,13 @@ function fakeSave(): void {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* 窄 Webview（侧边栏拖窄 / 小窗口分屏）：两列画廊网格折单列（U-4） */
+@media (max-width: 640px) {
+  .gallery__grid,
+  .gallery__grid--halves {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

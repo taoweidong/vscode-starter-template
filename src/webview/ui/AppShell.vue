@@ -43,8 +43,8 @@ withDefaults(
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 24px 12px;
+  gap: var(--ui-space-4);
+  padding: var(--ui-space-4) var(--ui-space-6) var(--ui-space-3);
   border-bottom: 1px solid var(--ui-border);
 }
 
@@ -60,7 +60,7 @@ withDefaults(
 }
 
 .app-shell__subtitle {
-  margin: 4px 0 0;
+  margin: var(--ui-space-1) 0 0;
   font-size: 0.9em;
   color: var(--ui-fg-muted);
 }
@@ -68,14 +68,20 @@ withDefaults(
 .app-shell__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
   margin-left: auto;
 }
 
 .app-shell__main {
   box-sizing: border-box;
   width: 100%;
-  padding: 16px 24px 24px;
+  padding: var(--ui-space-4) var(--ui-space-6) var(--ui-space-6);
+}
+
+@media (max-width: 400px) {
+  .app-shell__main {
+    padding: var(--ui-space-4) var(--ui-space-3) var(--ui-space-6);
+  }
 }
 
 .app-shell__main--form {

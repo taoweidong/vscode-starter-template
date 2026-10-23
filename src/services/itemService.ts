@@ -30,6 +30,8 @@ export interface ReloadOptions {
 export class ItemService {
   private store: IItemStore
   private cache: Item[] | undefined
+  /** 与 cache 平行维护的搜索文本（小写拼接），过滤只做 includes。 */
+  private searchTexts: string[] = []
   private filter = ''
   /** 首载单飞：并发 ensureLoaded 共享同一次 load。 */
   private loadPromise: Promise<Item[]> | undefined
@@ -68,12 +70,7 @@ export class ItemService {
     if (!keyword) {
       return [...items]
     }
-    return items.filter((item) =>
-      [item.name, item.category, item.description, item.tags.join(' ')]
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword)
-    )
+    return items.filter((_, index) => this.searchTexts[index]?.includes(keyword) ?? false)
   }
 
   /** 列出全部条目（忽略当前过滤——供选择器等需要完整集合的场景）。 */
@@ -249,12 +246,13 @@ export class ItemService {
   /**
    * 领域校验（T5.1 / P0-04）：统一走 src/domain/itemSchema.ts 的 coerceDraft，
    * 按字段定义表动态清洗；未知字段（string / number / boolean）透传保留。
-   * 失败抛 ItemValidationError，消息自带字段中文名，可直接展示。
+   * 失败抛 ItemValidationError（携带 field），消息自带字段中文名，可直接展示。
    */
   private validate(draft: ItemDraft): ItemDraft {
     const result = coerceDraft(draft)
     if (!result.ok) {
-      throw new ItemValidationError(result.message)
+      // field 透传：页面据此把错误定位到具体控件（webviewController 经 err.field 下发）
+      throw Object.assign(new ItemValidationError(result.message), { field: result.field })
     }
     return result.draft
   }
@@ -263,7 +261,15 @@ export class ItemService {
   private invalidate(): void {
     this.reloadGeneration += 1
     this.cache = undefined
+    this.searchTexts = []
     this.loadPromise = undefined
+  }
+
+  /** 缓存平行维护的搜索文本（小写拼接），过滤只做 includes。 */
+  private rebuildSearchIndex(items: Item[]): void {
+    this.searchTexts = items.map((item) =>
+      [item.name, item.category, item.description, item.tags.join(' ')].join(' ').toLowerCase()
+    )
   }
 
   private async ensureLoaded(): Promise<Item[]> {
@@ -278,6 +284,7 @@ export class ItemService {
           // 过期结果（期间发生过 reload / replaceStore）不落缓存，仅返回给本次调用
           if (generation === this.reloadGeneration) {
             this.cache = items
+            this.rebuildSearchIndex(items)
           }
           return items
         },
@@ -309,6 +316,7 @@ export class ItemService {
       throw err
     }
     this.cache = next
+    this.rebuildSearchIndex(next)
     this.lastPersistAtValue = Date.now()
     this._onDidChangeItems.fire()
   }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, useId } from 'vue'
 import { VFORM_FIELD_KEY, type VFormFieldContext } from './formFieldContext'
 
 /**
@@ -25,8 +25,8 @@ const props = withDefaults(
 const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 
 const field = inject<VFormFieldContext | null>(VFORM_FIELD_KEY, null)
-const fallbackId = ref('v-input')
-const controlId = computed(() => props.id ?? field?.controlId.value ?? fallbackId.value)
+const fallbackId = useId()
+const controlId = computed(() => props.id ?? field?.controlId.value ?? fallbackId)
 const isInvalid = computed(() => props.invalid || (field?.invalid.value ?? false))
 
 function onInput(event: Event): void {
@@ -56,10 +56,10 @@ function onInput(event: Event): void {
 .v-input {
   box-sizing: border-box;
   width: 100%;
-  height: 26px;
-  padding: 4px 8px;
+  height: var(--ui-control-height);
+  padding: var(--ui-input-pad-y) var(--ui-input-pad-x);
   border: 1px solid var(--ui-input-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   background: var(--ui-input-bg);
   color: var(--ui-input-fg);
   font-family: var(--ui-font);

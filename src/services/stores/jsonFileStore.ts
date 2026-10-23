@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import type { Item } from '../../models/item'

@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import App from '../../../webview/apps/featureConfig/App.vue'
 import { __setVsCodeApiForTest, type VsCodeApi } from '../../../webview/shared/useVsCodeApi'
-import { toFormFields } from '../../../features/featureConfig/featureFlags'
+import { toFeatureFormFields } from '../../../features/featureConfig/featureFlags'
 import { toFieldDefs } from '../../../webview/formSchema'
 import { buttonDisabled, hostMessage, inputChecked } from './appTestUtils'
 
@@ -11,7 +11,7 @@ import { buttonDisabled, hostMessage, inputChecked } from './appTestUtils'
  * 特性配置页（M4-T4.3，FR-12 AC4）：回显 / dirty / 保存流（部分失败保持打开）。
  */
 
-const SCHEMA = toFieldDefs(toFormFields())
+const SCHEMA = toFieldDefs(toFeatureFormFields())
 
 function createApiMock() {
   const api: VsCodeApi & { posted: unknown[] } = {

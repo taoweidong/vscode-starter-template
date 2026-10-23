@@ -86,7 +86,7 @@ export function getFeatureValues(): Record<string, boolean> {
 }
 
 /** 特性开关 → boolean 表单字段，复用 Schema 表单框架渲染配置页面。 */
-export function toFormFields(): FormField[] {
+export function toFeatureFormFields(): FormField[] {
   return FEATURE_FLAGS.map((flag) => ({
     key: flag.key,
     label: flag.label,

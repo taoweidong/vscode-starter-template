@@ -3,7 +3,7 @@ import { getFeatureValue } from '../features/featureConfig/featureFlags'
 import type { Item, ItemDraft, Priority } from '../models/item'
 import { isPriority } from '../models/item'
 import { toDraft } from '../domain/itemSchema'
-import { ItemService, ItemValidationError } from '../services/itemService'
+import { ItemService } from '../services/itemService'
 import { FORM_SCHEMA, toFieldDefs } from '../webview/formSchema'
 import {
   WebviewController,
@@ -163,19 +163,16 @@ export function createItemFormDeps(
     onSubmit: async (draft: Record<string, unknown>) => {
       // 提交按最新目标执行：实例面板跟随切换，恢复面板用 buildInit 解析出的目标
       const current = getTarget() ?? restoredTarget ?? { mode: 'create' as const }
-      try {
-        if (current.mode === 'edit' && current.itemId) {
-          const updated = await service.update(current.itemId, toItemDraft(draft))
-          options.onClose()
-          notifySuccess(`已更新「${updated.name}」。`)
-        } else {
-          const created = await service.create(toItemDraft(draft))
-          options.onClose()
-          notifySuccess(`已新增「${created.name}」。`)
-        }
-      } catch (err) {
-        // 校验错误尽量定位到具体字段（页面把它显示在对应控件下）
-        throw withField(err, fieldOfError(err))
+      // 校验错误已由服务层携带 field（coerceDraft 透传）：原样上抛，
+      // webviewController 经 err.field 随 error 消息下发，页面据此定位控件
+      if (current.mode === 'edit' && current.itemId) {
+        const updated = await service.update(current.itemId, toItemDraft(draft))
+        options.onClose()
+        notifySuccess(`已更新「${updated.name}」。`)
+      } else {
+        const created = await service.create(toItemDraft(draft))
+        options.onClose()
+        notifySuccess(`已新增「${created.name}」。`)
       }
     },
     onCancel: () => options.onClose(),
@@ -260,23 +257,9 @@ function toItemDraft(draft: Record<string, unknown>): ItemDraft {
     category: String(draft.category ?? ''),
     description: String(draft.description ?? ''),
     priority: (isPriority(draft.priority) ? draft.priority : 'medium') as Priority,
-    tags: Array.isArray(draft.tags) ? draft.tags.map(String) : [],
+    // 只透传字符串标签：数字/布尔等非字符串项不过滤掉，交由领域层 coerceTagsField 校验
+    tags: Array.isArray(draft.tags)
+      ? draft.tags.filter((tag): tag is string => typeof tag === 'string')
+      : [],
   }
-}
-
-/** 给错误附加 field 属性（webviewController 会随 error 消息下发，页面据此定位控件）。 */
-function withField(err: unknown, field: string | undefined): unknown {
-  if (field === undefined) {
-    return err
-  }
-  return Object.assign(err instanceof Error ? err : new Error(String(err)), { field })
-}
-
-/** 服务层校验错误 → 字段 key：按 FORM_SCHEMA 的必填字段 label 匹配错误文案。 */
-function fieldOfError(err: unknown): string | undefined {
-  if (!(err instanceof ItemValidationError)) {
-    return undefined
-  }
-  const hit = FORM_SCHEMA.find((field) => field.required && err.message.includes(field.label))
-  return hit?.key
 }

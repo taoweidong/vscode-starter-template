@@ -199,10 +199,8 @@ export function coerceDraft(raw: Record<string, unknown>): CoerceDraftResult {
 
 /** 剥离 id / createdAt / updatedAt，其余字段（含未来扩展字段）全量保留。 */
 function stripMeta(item: Item & Record<string, unknown>): Record<string, unknown> {
+  // 下划线前缀的拆解变量是「omit via rest」惯用法：eslint varsIgnorePattern '^_' 已豁免
   const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = item
-  void _id
-  void _createdAt
-  void _updatedAt
   return rest
 }
 

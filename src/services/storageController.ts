@@ -61,10 +61,10 @@ export class StorageController implements vscode.Disposable {
     this.service = new ItemService(this.store)
     this.attachWatcher()
     this.subscriptions.push(
-      vscode.workspace.onDidChangeWorkspaceFolders(() => this.rebuild('工作区变化')),
+      vscode.workspace.onDidChangeWorkspaceFolders(() => this.rebuild()),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration(`${CONFIG.section}.${CONFIG.storagePath}`)) {
-          this.rebuild('storagePath 配置变化')
+          this.rebuild()
         }
       })
     )
@@ -104,7 +104,7 @@ export class StorageController implements vscode.Disposable {
   }
 
   /** 环境变化时重建 store + watcher；数据位置没变则跳过（避免无谓刷新）。 */
-  private rebuild(trigger: string): void {
+  private rebuild(): void {
     const next = this.createStore()
     if (sameStore(this.store, next)) {
       return
@@ -115,7 +115,6 @@ export class StorageController implements vscode.Disposable {
     this.service.replaceStore(next)
     this.attachWatcher()
     this.service.reload() // 通知树视图按新数据源刷新
-    void trigger
   }
 
   private readConfiguredPath(): string {

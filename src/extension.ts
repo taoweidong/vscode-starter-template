@@ -204,7 +204,11 @@ function createStaticConfigWatcher(
   return watcher
 }
 
-/** 根据当前数据更新视图的空状态提示与过滤徽标。 */
+/**
+ * 根据当前数据更新视图的空状态提示与过滤徽标。
+ * 已知限制：连续 onDidChangeItems 触发并发 list() 时，后完成的先赋值可能留下旧计数一瞬间；
+ * 数据同源、窗口极小，暂不处理（评审结论：列为已知限制）。
+ */
 async function updateViewStatus(
   treeView: vscode.TreeView<TreeNode>,
   service: ItemService

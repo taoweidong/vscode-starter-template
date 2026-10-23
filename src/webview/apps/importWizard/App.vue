@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  isHostMessage,
-  type HostMessage,
-  type ImportPreviewFile,
-  type ImportResult,
-} from '../../protocol'
+import { isHostMessage, type ImportPreviewFile, type ImportResult } from '../../protocol'
 import { useVsCodeApi } from '../../shared/useVsCodeApi'
 import AppShell from '../../ui/AppShell.vue'
 import VBadge from '../../ui/VBadge.vue'
@@ -236,7 +231,7 @@ onBeforeUnmount(() => {
         description="换一个文件夹，或返回上一步重新选择。"
         icon="info"
       ></VEmptyState>
-      <ul v-else class="wizard__files" role="list">
+      <ul v-else class="wizard__files">
         <li
           v-for="row in rows"
           :key="row.path"
@@ -454,5 +449,23 @@ onBeforeUnmount(() => {
 .wizard__error {
   margin: 0;
   color: var(--ui-error);
+}
+
+/* 窄 Webview（侧边栏拖窄 / 小窗口分屏）：三列文件网格先折两列，再纵排（U-4） */
+@media (max-width: 520px) {
+  .wizard__file {
+    grid-template-columns: 1fr auto; /* 名称 + 标记同行，路径独占下一行 */
+  }
+
+  .wizard__file-path {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .wizard__folder-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

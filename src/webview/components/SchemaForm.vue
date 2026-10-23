@@ -26,6 +26,8 @@ const props = withDefaults(
     /** 字段级错误（key → 错误文案），宿主回传的错误经它定位控件 */
     errors?: Record<string, string>
     disabled?: boolean
+    /** 表单可访问名（A-2）：由页面传入标题，屏幕阅读器据此播报表单 */
+    ariaLabel?: string
   }>(),
   { errors: () => ({}), disabled: false }
 )
@@ -34,6 +36,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: Record<string, unknown>): void
   (e: 'submit'): void
   (e: 'cancel'): void
+  /** 宿主错误随输入清除：通知页面删除 errors 中对应字段（父级无需知道内部结构） */
+  (e: 'clearError', key: string): void
 }>()
 
 /** type → 字段组件注册表；新增字段类型在此登记一行。 */
@@ -65,6 +69,10 @@ function setValue(field: FormField, value: unknown): void {
     const next = { ...localErrors.value }
     delete next[field.key]
     localErrors.value = next
+  }
+  // 宿主错误（props.errors）同样随输入清除：通知页面删除对应字段错误
+  if (props.errors[field.key] !== undefined) {
+    emit('clearError', field.key)
   }
   emit('update:modelValue', { ...props.modelValue, [field.key]: value })
 }
@@ -128,7 +136,15 @@ defineExpose({ validate: validateRequired, focusFirst })
 </script>
 
 <template>
-  <form ref="form" class="schema-form" novalidate @keydown="onKeydown" @submit.prevent>
+  <form
+    ref="form"
+    class="schema-form"
+    role="form"
+    :aria-label="ariaLabel"
+    novalidate
+    @keydown="onKeydown"
+    @submit.prevent
+  >
     <VFormField
       v-for="field in schema"
       :key="field.key"

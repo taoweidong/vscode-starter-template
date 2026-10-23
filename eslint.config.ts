@@ -91,19 +91,5 @@ export default tseslint.config(
       'prefer-const': 'off',
     },
   },
-  {
-    // VFormField：模块级计数器 `v-field-${++fieldSeq}` 的初值本就不被读取（先自增后使用）
-    files: ['src/webview/ui/**'],
-    rules: {
-      'no-useless-assignment': 'off',
-    },
-  },
-  {
-    // 两个页面根组件存在未使用的类型导入（HostMessage），类型层由 vue-tsc 全量把关
-    files: ['src/webview/apps/featureConfig/App.vue', 'src/webview/apps/importWizard/App.vue'],
-    rules: {
-      '@typescript-eslint/no-unused-vars': 'off',
-    },
-  },
   prettier
 )

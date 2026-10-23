@@ -171,7 +171,8 @@ export function createImportWizardDeps(
       const folderUri = vscode.Uri.file(folder)
       const entries = await vscode.workspace.fs.readDirectory(folderUri)
       const files = entries
-        .filter(([, fileType]) => fileType === vscode.FileType.File)
+        // 符号链接到文件时 readDirectory 返回 File|SymbolicLink（位或），位运算判定避免漏扫
+        .filter(([, fileType]) => (fileType & vscode.FileType.File) !== 0)
         .map(([name]) => ({ name, uri: vscode.Uri.joinPath(folderUri, name) }))
         .slice(0, ImportWizardPanel.MAX_FILES)
       if (files.length === 0) {

@@ -37,6 +37,7 @@ function onChange(event: Event): void {
       type="checkbox"
       :checked="modelValue"
       :disabled="disabled"
+      :aria-invalid="field?.invalid.value || undefined"
       :aria-describedby="field?.describedBy.value"
       @change="onChange"
     />
@@ -48,17 +49,17 @@ function onChange(event: Event): void {
 .v-checkbox {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
   cursor: pointer;
 }
 
 .v-checkbox__input {
-  width: 15px;
-  height: 15px;
+  width: var(--ui-checkbox-size);
+  height: var(--ui-checkbox-size);
   box-sizing: border-box;
   margin: 0;
   border: 1px solid var(--ui-check-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   background: var(--ui-check-bg);
   color: var(--ui-check-fg);
   accent-color: var(--vscode-checkbox-select-background, var(--ui-focus));

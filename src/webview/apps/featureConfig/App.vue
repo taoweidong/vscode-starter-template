@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { isHostMessage, type HostMessage } from '../../protocol'
+import { computed, ref, watch } from 'vue'
 import { useVsCodeApi } from '../../shared/useVsCodeApi'
 import { schemaDefaults, toFormFields } from '../../components/fieldAdapter'
 import type { FormField } from '../../formSchema'
+import { useFormPage } from '../../composables/useFormPage'
+import { stableStringify } from '../../shared/stableStringify'
 import SchemaForm from '../../components/SchemaForm.vue'
 import AppShell from '../../ui/AppShell.vue'
 import VButton from '../../ui/VButton.vue'
@@ -15,54 +16,48 @@ import VButton from '../../ui/VButton.vue'
  * - 保存（submit）→ 宿主逐项 setFeatureValue（allSettled 语义）：
  *   全部成功由宿主关闭面板；部分失败回 error 消息（列出失败开关），面板保持打开；
  * - dirty 上报与条目表单一致；本页无草稿持久化（开关改动即时可见，取消即还原）。
+ *
+ * 宿主消息监听 / ready 上报 / init·submitAck·error 分发由 useFormPage 编排。
  */
+
+/** SchemaForm 暴露面（defineExpose 的类型化引用，替代结构断言）。 */
+interface SchemaFormInstance {
+  validate: () => boolean
+  focusFirst: () => void
+}
+
 const api = useVsCodeApi()
 
 const schema = ref<FormField[]>([])
 const value = ref<Record<string, unknown>>({})
 const baseline = ref<Record<string, unknown>>({})
-const hostError = ref('')
-const submitting = ref(false)
-const initialized = ref(false)
-const formRef = ref<{ validate?: () => boolean } | null>(null)
+const formRef = ref<SchemaFormInstance | null>(null)
 
-const dirty = computed(() => JSON.stringify(value.value) !== JSON.stringify(baseline.value))
+const dirty = computed(() => stableStringify(value.value) !== stableStringify(baseline.value))
+
+const { initialized, submitting, hostError } = useFormPage({
+  onInit: (message) => {
+    schema.value = toFormFields(message.schema)
+    value.value = {
+      ...schemaDefaults(schema.value),
+      ...(message.value as Record<string, unknown>),
+    }
+    baseline.value = { ...value.value }
+    hostError.value = ''
+    submitting.value = false
+  },
+  onSubmitAck: () => {
+    baseline.value = { ...value.value }
+    post({ type: 'dirty', dirty: false })
+  },
+  onError: (message) => {
+    // 部分开关保存失败：宿主列出失败项，面板保持打开供用户重试
+    hostError.value = message.message
+  },
+})
 
 function post(message: unknown): void {
   api.postMessage(message)
-}
-
-function onHostMessage(event: MessageEvent): void {
-  const message = event.data
-  if (!isHostMessage(message)) {
-    return
-  }
-  switch (message.type) {
-    case 'init':
-      schema.value = toFormFields(message.schema)
-      value.value = {
-        ...schemaDefaults(schema.value),
-        ...(message.value as Record<string, unknown>),
-      }
-      baseline.value = { ...value.value }
-      hostError.value = ''
-      submitting.value = false
-      initialized.value = true
-      break
-    case 'submitAck':
-      submitting.value = false
-      hostError.value = ''
-      baseline.value = { ...value.value }
-      post({ type: 'dirty', dirty: false })
-      break
-    case 'error':
-      // 部分开关保存失败：宿主列出失败项，面板保持打开供用户重试
-      submitting.value = false
-      hostError.value = message.message
-      break
-    default:
-      break
-  }
 }
 
 watch(
@@ -89,8 +84,7 @@ function requestSubmit(): void {
   if (submitting.value) {
     return
   }
-  const form = formRef.value as { validate?: () => boolean } | null
-  if (form?.validate && !form.validate()) {
+  if (formRef.value && !formRef.value.validate()) {
     return
   }
   onSubmit()
@@ -99,15 +93,6 @@ function requestSubmit(): void {
 function onCancel(): void {
   post({ type: 'cancel' })
 }
-
-onMounted(() => {
-  window.addEventListener('message', onHostMessage)
-  post({ type: 'ready' })
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('message', onHostMessage)
-})
 </script>
 
 <template>
@@ -121,6 +106,7 @@ onBeforeUnmount(() => {
       v-model="value"
       :schema="schema"
       :disabled="submitting"
+      :aria-label="'特性配置'"
       @submit="onSubmit"
       @cancel="onCancel"
     ></SchemaForm>

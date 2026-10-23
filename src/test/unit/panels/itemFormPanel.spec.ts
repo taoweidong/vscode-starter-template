@@ -154,8 +154,9 @@ describe('itemFormPanel：submit 分流与错误回传', () => {
   it('校验错误回传 error 且带 field（页面定位到 name 控件），面板保持打开', async () => {
     const { deps, panels } = makePanelDeps()
     const service = makeService()
+    // 服务层 validate 现在透传 coerceDraft 的 field（B-10 根因修复），mock 同步该形态
     ;(service as unknown as { create: ReturnType<typeof vi.fn> }).create.mockRejectedValue(
-      new ItemValidationError('名称不能为空。')
+      Object.assign(new ItemValidationError('名称不能为空。'), { field: 'name' })
     )
     ItemFormPanel.createOrShow(service, undefined, undefined, deps)
     panels[0].webview.__emit({ type: 'ready' })

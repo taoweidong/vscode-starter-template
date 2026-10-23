@@ -16,7 +16,7 @@ import { renderWebviewHtml } from './webviewHtml'
  * - 每个 pageId 一个实例（模块级注册表）；
  * - 消息先过 protocol.ts 守卫，未知消息记日志不抛错（修复 W7）；
  * - submit 在途幂等，10s 超时自动解锁并回 error（修复 W8 宿主侧）；
- * - dirty 跟踪：切换目标前经模态确认；
+ * - dirty 跟踪：切换目标前经模态确认；取消 / Esc 同样先经模态确认（拒绝则面板保持打开）；
  * - 草稿持久化：页面侧经 webview getState/setState 自行保存，宿主只在
  *   serializer 恢复时把持久化状态随 init.extra.persisted 传回（保留恢复入口）；
  * - dispose 幂等：onDidDispose 只清理资源，不再反向 panel.dispose；dispose 标志防重入（修复 P1-17）；
@@ -224,6 +224,23 @@ export class WebviewController {
     return true
   }
 
+  /** 取消 / Esc：dirty 时先模态确认，拒绝则面板保持打开（页面无感知，协议不变）。 */
+  private async handleCancel(): Promise<void> {
+    if (this.dirty) {
+      const discard = '放弃修改并关闭'
+      const choice = await vscode.window.showWarningMessage(
+        '当前有未保存的修改，关闭面板将丢失这些修改。',
+        { modal: true },
+        discard
+      )
+      if (choice !== discard) {
+        return // 用户拒绝：面板保持打开，页面状态不变
+      }
+    }
+    this.dirty = false
+    this.deps.onCancel?.()
+  }
+
   reveal(): void {
     this.panel?.reveal()
   }
@@ -301,8 +318,7 @@ export class WebviewController {
         void this.handleSubmit(raw.draft)
         break
       case 'cancel':
-        this.dirty = false
-        this.deps.onCancel?.()
+        void this.handleCancel()
         break
       default:
         // 页面专属消息（批量导入向导等）：交由业务层的 onPageMessage 分发

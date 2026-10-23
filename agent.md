@@ -76,6 +76,7 @@ webview/（Vue 3 页面：host 宿主控制器 + components SchemaForm + apps �
    第二个参数是多选集合；`TreeItem.command` 传的才是原始对象。
 6. **shell 拼接外部输入前必须白名单校验**（先例：分支名 `BRANCH_NAME_PATTERN`）。
 7. **测试卫生**：测试创建的临时目录必须在 `finally` 中 `fs.rmSync` 清理。
+8. **eslint 豁免管理**：新增文件级 / 目录级豁免必须在注释中注明根因与消除条件；随代码修复及时删除豁免，禁止只增不减。
 
 ## 常用命令
 

@@ -18,7 +18,7 @@ import {
   FEATURE_FLAGS,
   getFeatureValue,
   setFeatureValue,
-  toFormFields,
+  toFeatureFormFields,
 } from '../features/featureConfig/featureFlags'
 import { InitService } from '../features/init/initService'
 import type { InitStep } from '../features/init/initSteps'
@@ -241,8 +241,8 @@ suite('特性配置', () => {
     assert.strictEqual(getFeatureValue('confirmDelete'), original)
   })
 
-  test('toFormFields 生成 boolean 表单字段（供配置页面复用表单框架）', () => {
-    const fields = toFormFields()
+  test('toFeatureFormFields 生成 boolean 表单字段（供配置页面复用表单框架）', () => {
+    const fields = toFeatureFormFields()
     assert.strictEqual(fields.length, FEATURE_FLAGS.length)
     for (const field of fields) {
       assert.strictEqual(field.type, 'boolean')

@@ -98,18 +98,24 @@ export class ItemsTreeDataProvider implements vscode.TreeDataProvider<TreeNode> 
   }
 }
 
+/** Markdown 行内特殊字符转义（\ * _ [ ] `；反斜杠优先）。 */
+function escapeMarkdownInline(text: string): string {
+  return text.replace(/([\\*_`[\]])/g, '\\$1')
+}
+
 function buildTooltip(item: Item): vscode.MarkdownString {
   const md = new vscode.MarkdownString()
-  // codicon 与树视图保持同一图标语言
+  // codicon 与树视图保持同一图标语言；用户内容（名称）先转义再拼 Markdown
   md.appendMarkdown(
-    `**${item.name}** &nbsp;$(${PRIORITY_ICONS[item.priority]}) ${PRIORITY_LABELS[item.priority]}优先级\n\n`
+    `**${escapeMarkdownInline(item.name)}** &nbsp;$(${PRIORITY_ICONS[item.priority]}) ${PRIORITY_LABELS[item.priority]}优先级\n\n`
   )
-  md.appendMarkdown(`- 分类：${item.category || UNCATEGORIZED}\n`)
+  md.appendMarkdown(`- 分类：${escapeMarkdownInline(item.category || UNCATEGORIZED)}\n`)
   if (item.tags.length) {
-    md.appendMarkdown(`- 标签：${item.tags.join('、')}\n`)
+    md.appendMarkdown(`- 标签：${item.tags.map(escapeMarkdownInline).join('、')}\n`)
   }
   if (item.description) {
-    md.appendMarkdown(`\n${item.description}\n`)
+    // 描述是自由文本：appendText 不做 Markdown 解析，按纯文本展示（换行原样保留）
+    md.appendText(`\n${item.description}\n`)
   }
   md.appendMarkdown(`\n---\n\n_更新于 ${new Date(item.updatedAt).toLocaleString()}_`)
   return md

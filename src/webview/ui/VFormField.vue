@@ -1,10 +1,5 @@
-<script lang="ts">
-/** 模块级自增序号：同一页面多字段 id 不冲突（script setup 顶层是实例作用域，故放这里）。 */
-let fieldSeq = 0
-</script>
-
 <script setup lang="ts">
-import { computed, provide, ref } from 'vue'
+import { computed, provide, useId } from 'vue'
 import { VFORM_FIELD_KEY, type VFormFieldContext } from './formFieldContext'
 import { iconClass } from './iconNames'
 
@@ -26,9 +21,9 @@ const props = withDefaults(
   { required: false }
 )
 
-const generatedId = ref(`v-field-${++fieldSeq}`)
+const generatedId = useId()
 
-const controlId = computed(() => props.for ?? generatedId.value)
+const controlId = computed(() => props.for ?? generatedId)
 const invalid = computed(() => !!props.error)
 const describedBy = computed(() => {
   const ids: string[] = []
@@ -67,14 +62,14 @@ provide(VFORM_FIELD_KEY, { controlId, invalid, describedBy } satisfies VFormFiel
 .v-form-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: var(--ui-space-1);
+  margin-bottom: var(--ui-space-3);
 }
 
 .v-form-field__label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--ui-space-1);
   cursor: default;
 }
 
@@ -91,7 +86,7 @@ provide(VFORM_FIELD_KEY, { controlId, invalid, describedBy } satisfies VFormFiel
 .v-form-field__error {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--ui-space-1);
   margin: 0;
   font-size: 0.9em;
   color: var(--ui-error);

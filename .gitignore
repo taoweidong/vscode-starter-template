@@ -17,3 +17,4 @@ test-results/
 
 # AI 工具会话产物
 .zcode/
+.workbuddy/

@@ -263,6 +263,52 @@ describe('dirty 确认（switchTarget）', () => {
   })
 })
 
+describe('cancel 路径 dirty 确认（U-1：Esc / 点取消）', () => {
+  it('dirty=false 时 cancel 直接触发 onCancel，不弹确认', async () => {
+    const { deps, panels } = makeDeps()
+    const onCancel = vi.fn()
+    const controller = WebviewController.createOrShow('gallery', context, { ...deps, onCancel })
+    await controller.ready
+    panels[0].webview.__emit({ type: 'cancel' })
+    await vi.waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1))
+    expect(__stubs.recorded.filter((r) => r.kind === 'showWarningMessage')).toHaveLength(0)
+    expect(controller.isDirty).toBe(false)
+  })
+
+  it('dirty=true 时弹模态确认，选「放弃修改并关闭」→ onCancel 触发', async () => {
+    const { deps, panels } = makeDeps()
+    const onCancel = vi.fn()
+    const controller = WebviewController.createOrShow('gallery', context, { ...deps, onCancel })
+    await controller.ready
+    panels[0].webview.__emit({ type: 'dirty', dirty: true })
+    __stubs.dialogQueue.push('放弃修改并关闭')
+    panels[0].webview.__emit({ type: 'cancel' })
+    await vi.waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1))
+    const warning = __stubs.recorded.find((r) => r.kind === 'showWarningMessage')
+    expect(warning).toBeDefined()
+    const payload = warning?.args[0] as { message: string; items: unknown[] }
+    expect(payload.message).toContain('未保存的修改')
+    // 模态 + 中文确认项
+    expect(payload.items.some((item) => (item as { modal?: boolean }).modal === true)).toBe(true)
+    expect(controller.isDirty).toBe(false)
+  })
+
+  it('dirty=true 时关闭确认弹窗（undefined）→ onCancel 不触发、面板保持打开', async () => {
+    const { deps, panels } = makeDeps()
+    const onCancel = vi.fn()
+    const controller = WebviewController.createOrShow('gallery', context, { ...deps, onCancel })
+    await controller.ready
+    panels[0].webview.__emit({ type: 'dirty', dirty: true })
+    __stubs.dialogQueue.push(undefined)
+    panels[0].webview.__emit({ type: 'cancel' })
+    // 排空微任务：等待 handleCancel 的模态确认流程走完（弹窗应答 undefined → 直接 return）
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(onCancel).not.toHaveBeenCalled()
+    expect(panels[0].disposeCalls).toBe(0)
+    expect(controller.isDirty).toBe(true)
+  })
+})
+
 describe('submit 幂等与超时', () => {
   it('成功回 submitAck；失败回 error', async () => {
     const { deps, panels } = makeDeps()

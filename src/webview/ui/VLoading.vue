@@ -25,7 +25,7 @@ withDefaults(
 .v-loading {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
   color: var(--ui-fg-muted);
 }
 

@@ -4,7 +4,7 @@ import {
   getFeatureValue,
   getFeatureValues,
   setFeatureValue,
-  toFormFields,
+  toFeatureFormFields,
 } from './featureFlags'
 import { toFieldDefs } from '../../webview/formSchema'
 import { WebviewController, type WebviewControllerDeps } from '../../webview/host/webviewController'
@@ -99,7 +99,7 @@ export function createFeatureConfigDeps(
   const apply = options.applyFeatureValue ?? setFeatureValue
   return {
     buildInit: () => ({
-      schema: toFieldDefs(toFormFields()),
+      schema: toFieldDefs(toFeatureFormFields()),
       value: getFeatureValues(),
       extra: {},
     }),
