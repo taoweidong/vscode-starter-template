@@ -107,10 +107,10 @@ const steps: StepDef[] = [
   {
     name: '2/9 类型检查（tsc --noEmit，strict）',
     run: (timeout) => {
-      exec('npx tsc --noEmit', timeout)
+      exec('npx tsc -p tsconfig.node.json --noEmit', timeout)
       if (existsSync(path.join(root, 'tsconfig.webview.json'))) {
         exec('npx vue-tsc --noEmit -p tsconfig.webview.json', timeout)
-        return 'tsc 与 vue-tsc（webview）均无类型错误'
+        return 'tsc（node）与 vue-tsc（webview）均无类型错误'
       }
       return 'tsc 无类型错误（未发现 tsconfig.webview.json，跳过 vue-tsc）'
     },
@@ -129,7 +129,7 @@ const steps: StepDef[] = [
   },
   {
     name: '5/9 测试编译（tsc → out/）',
-    run: (timeout) => exec('npx tsc -p . --outDir out', timeout),
+    run: (timeout) => exec('npx tsc -p tsconfig.node.json --outDir out', timeout),
   },
   {
     name: '6/9 静态一致性与样式门禁检查',
