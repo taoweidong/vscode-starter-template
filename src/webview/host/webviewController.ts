@@ -73,6 +73,11 @@ export interface WebviewControllerDeps {
    * 如批量导入向导的 browseFolder / requestPreview / executeImport / cancelImport）。
    */
   onPageMessage?: (message: WebviewMessage) => void
+  /**
+   * 面板销毁回调（用户关面板与编程式 dispose 两条路径都会触发，且至多一次）。
+   * 持有会话资源的页面（如串口连接）在此释放。
+   */
+  onDispose?: () => void
   /** 诊断日志出口；缺省 console。 */
   log?: (message: string) => void
 }
@@ -484,5 +489,7 @@ export class WebviewController {
     this.messageDisposable?.dispose()
     this.messageDisposable = undefined
     WebviewController.controllers.delete(this.page.id)
+    // 两条 dispose 路径（编程式 / 用户关面板）都先经 disposed 幂等标志，此调用至多一次
+    this.deps.onDispose?.()
   }
 }

@@ -1,0 +1,351 @@
+import * as vscode from 'vscode'
+import { STORAGE } from '../../constants'
+import { deriveFormSchema, toFieldDefs } from '../../webview/formSchema'
+import type { HostMessage, SerialServerWire, WebviewMessage } from '../../webview/protocol'
+import {
+  WebviewController,
+  type WebviewControllerDeps,
+} from '../../webview/host/webviewController'
+import type { CommandHistoryService } from './commandHistoryService'
+import type { SerialServer } from './models'
+import { createServerId } from './models'
+import type { SerialPortFactory } from './serialPortFactory'
+import { createSerialLinkService } from './serialLinkService'
+import { coerceServerDraft, SERVER_FIELD_DEFS } from './serverSchema'
+import type { IServerStore } from './serverStore'
+
+/**
+ * 串口命令控制台面板（宿主侧编排，模式对齐 importWizardPanel）。
+ *
+ * 职责：
+ * - init 下发表单 Schema（SERVER_FIELD_DEFS 派生）+ 服务器列表 + 命令历史；
+ * - serialServerSave：coerceServerDraft 校验 → 存储；**password 剥离进 SecretStorage**，
+ *   任何路径都不落数据文件（编辑留空 = 保持已存密码）；
+ * - serialConnect / serialDisconnect / serialSend：经 SerialLinkService；
+ *   自动登录（可选）：连接后延时发送用户名与密码（凭据不进命令历史）；
+ * - 面板销毁（onDispose）自动断开串口。
+ */
+
+/** SecretStorage 的最小结构面（测试可注入内存实现）。 */
+export interface SecretStorageLike {
+  get(key: string): Thenable<string | undefined>
+  store(key: string, value: string): Thenable<void>
+  delete(key: string): Thenable<void>
+}
+
+export interface SerialConsoleServices {
+  store: IServerStore
+  history: CommandHistoryService
+  portFactory: SerialPortFactory
+  secrets: SecretStorageLike
+  /** 服务器增删改后通知（extension.ts 接树视图刷新）。 */
+  onServersChanged?: () => void
+  /** 诊断日志出口（输出通道）；密码等敏感值绝不打印。 */
+  logger?: (message: string) => void
+}
+
+/** 自动登录时序（设计文档 §7：连接后 800ms 发用户名，再 500ms 发密码；测试可注入短延时）。 */
+export const AUTO_LOGIN_USERNAME_DELAY_MS = 800
+export const AUTO_LOGIN_PASSWORD_DELAY_MS = 500
+
+const PASSWORD_KEY_SUFFIX = '.password'
+
+function passwordKey(serverId: string): string {
+  return `${STORAGE.serialServerSecretPrefix}${serverId}${PASSWORD_KEY_SUFFIX}`
+}
+
+function reasonOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+/**
+ * SerialServer → 协议线类型（接口缺隐式索引签名，经对象字面量展开获得；
+ * 与 formSchema.toFieldDefs 的匿名字面量拷贝同理）。
+ */
+function toServerWire(server: SerialServer): SerialServerWire {
+  return { ...server }
+}
+
+export interface SerialConsolePanelOptions {
+  /** 连接目标（树视图「连接并打开控制台」进入时预选）；每次打开取一次。 */
+  getInitialServerId?: () => string | undefined
+  /** 测试注入的自动登录时序。 */
+  usernameDelayMs?: number
+  passwordDelayMs?: number
+}
+
+/**
+ * 串口控制台的宿主依赖工厂（页面消息分发见类注释；post 经控制器注册表，
+ * 面板不存在时为 no-op）。
+ */
+export function createSerialConsoleDeps(
+  services: SerialConsoleServices,
+  options: SerialConsolePanelOptions = {}
+): WebviewControllerDeps {
+  const usernameDelay = options.usernameDelayMs ?? AUTO_LOGIN_USERNAME_DELAY_MS
+  const passwordDelay = options.passwordDelayMs ?? AUTO_LOGIN_PASSWORD_DELAY_MS
+
+  /** 服务器缓存：init / serialServersRequest 时从 store 刷新，页面内增删改即时维护。 */
+  let servers: SerialServer[] = []
+  /** 当前连接目标（serialState 推送时标识；断开不清除，便于页面关联错误信息）。 */
+  let activeServerId: string | undefined
+
+  const link = createSerialLinkService(services.portFactory, {
+    onData: (text, seq) => void post({ type: 'serialData', seq, text }),
+    onState: (state, error) =>
+      void post({ type: 'serialState', serverId: activeServerId ?? null, state, error }),
+  })
+
+  async function post(message: HostMessage): Promise<void> {
+    WebviewController.get('serialConsole')?.post(message)
+  }
+
+  async function pushServers(next: SerialServer[]): Promise<void> {
+    servers = next
+    await post({ type: 'serialServers', servers: next.map(toServerWire) })
+    services.onServersChanged?.()
+  }
+
+  async function pushHistory(): Promise<void> {
+    await post({ type: 'commandHistory', entries: await services.history.list() })
+  }
+
+  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+
+  /** 自动登录：连接后按序发送用户名 / 密码（凭据不经命令历史，不回显到日志）。 */
+  async function maybeAutoLogin(server: SerialServer): Promise<void> {
+    if (!server.autoLogin || server.username.length === 0) return
+    const password = await services.secrets.get(passwordKey(server.id))
+    if (!password) {
+      await post({ type: 'error', message: '未保存登录密码：请编辑服务器并填写密码后再使用自动登录。' })
+      return
+    }
+    await wait(usernameDelay)
+    link.send(server.username)
+    await wait(passwordDelay)
+    link.send(password)
+  }
+
+  async function saveServer(draft: Record<string, unknown>, password?: string): Promise<void> {
+    const coerced = coerceServerDraft(draft)
+    if (!coerced.ok) {
+      await post({ type: 'error', message: coerced.message, field: coerced.field })
+      return
+    }
+    const now = Date.now()
+    const existingId = typeof draft.id === 'string' ? draft.id : undefined
+    const existing = existingId ? servers.find((server) => server.id === existingId) : undefined
+    const id = existing?.id ?? createServerId()
+    const next: SerialServer = {
+      ...coerced.draft,
+      id,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    }
+    const rest = servers.filter((server) => server.id !== id)
+    try {
+      // 先落盘成功再推 UI / 写密码：失败时页面与存储保持一致
+      await services.store.save([...rest, next])
+    } catch (err) {
+      await post({ type: 'error', message: `保存服务器失败：${reasonOf(err)}` })
+      return
+    }
+    if (password !== undefined && password.length > 0) {
+      await services.secrets.store(passwordKey(id), password)
+    }
+    services.logger?.(`串口服务器已保存：${next.name}（${next.serialPath}）`)
+    await pushServers([...rest, next])
+  }
+
+  async function deleteServer(id: string): Promise<void> {
+    const target = servers.find((server) => server.id === id)
+    if (!target) {
+      await post({ type: 'error', message: '要删除的服务器不存在，可能已被删除，请刷新列表。' })
+      return
+    }
+    const rest = servers.filter((server) => server.id !== id)
+    try {
+      await services.store.save(rest)
+    } catch (err) {
+      await post({ type: 'error', message: `删除服务器失败：${reasonOf(err)}` })
+      return
+    }
+    await services.secrets.delete(passwordKey(id))
+    if (link.connectedServerId() === id) {
+      link.disconnect() // 删除当前连接的服务器：同步断开
+    }
+    services.logger?.(`串口服务器已删除：${target.name}`)
+    await pushServers(rest)
+  }
+
+  async function connectServer(serverId: string): Promise<void> {
+    const target = servers.find((server) => server.id === serverId)
+    if (!target) {
+      await post({ type: 'error', message: '要连接的服务器不存在，可能已被删除，请刷新列表。' })
+      return
+    }
+    activeServerId = serverId
+    try {
+      await link.connect(target)
+      await maybeAutoLogin(target)
+    } catch {
+      // 状态与错误经 onState → serialState 推送，这里不重复报错
+    }
+  }
+
+  async function sendCommand(command: string): Promise<void> {
+    if (link.state() !== 'connected') {
+      await post({ type: 'error', message: '串口未连接，请先连接服务器。' })
+      return
+    }
+    try {
+      link.send(command)
+    } catch (err) {
+      await post({ type: 'error', message: reasonOf(err) })
+      return
+    }
+    await services.history.record(command)
+    await pushHistory()
+  }
+
+  return {
+    buildInit: async () => {
+      try {
+        servers = await services.store.load()
+      } catch (err) {
+        services.logger?.(`加载服务器列表失败：${reasonOf(err)}`)
+        servers = []
+      }
+      const initialServerId = options.getInitialServerId?.()
+      return {
+        schema: toFieldDefs(deriveFormSchema(SERVER_FIELD_DEFS)),
+        value: null,
+        extra: {
+          servers: servers.map(toServerWire),
+          history: await services.history.list(),
+          initialServerId: initialServerId ?? null,
+        },
+      }
+    },
+    onPageMessage: (message: WebviewMessage) => {
+      switch (message.type) {
+        case 'serialPortsRequest':
+          void services.portFactory
+            .list()
+            .then((ports) => post({ type: 'serialPorts', ports }))
+            .catch((err: unknown) =>
+              post({ type: 'error', message: `检测串口失败：${reasonOf(err)}` })
+            )
+          break
+        case 'serialServersRequest':
+          void services.store
+            .load()
+            .then((loaded) => pushServers(loaded))
+            .catch((err: unknown) =>
+              post({ type: 'error', message: `加载服务器列表失败：${reasonOf(err)}` })
+            )
+          break
+        case 'serialServerSave':
+          void saveServer(message.draft, message.password)
+          break
+        case 'serialServerDelete':
+          void deleteServer(message.id)
+          break
+        case 'serialConnect':
+          void connectServer(message.serverId)
+          break
+        case 'serialDisconnect':
+          link.disconnect()
+          break
+        case 'serialSend':
+          void sendCommand(message.command)
+          break
+        case 'commandHistoryRequest':
+          void pushHistory()
+          break
+        case 'commandHistoryRemove':
+          void services.history.remove(message.id).then(() => pushHistory())
+          break
+        case 'commandHistoryClear':
+          void services.history.clear().then(() => pushHistory())
+          break
+        default:
+          break // ready/dirty/submit/cancel 由控制器处理
+      }
+    },
+    onDispose: () => {
+      // 面板关闭即断开串口：COM 口是独占资源，不能随面板潜伏
+      link.disconnect()
+    },
+  }
+}
+
+/** 面板单例包装（模式对齐 ItemFormPanel / ImportWizardPanel）。 */
+export class SerialConsolePanel {
+  private static context: vscode.ExtensionContext | undefined
+  private static current: SerialConsolePanel | undefined
+
+  /** extension.ts 组装时注入扩展上下文。 */
+  static configure(context: vscode.ExtensionContext): void {
+    SerialConsolePanel.context = context
+  }
+
+  /** 打开（或复用）控制台页面；initialServerId 预选并自动连接（每次打开取一次）。 */
+  static createOrShow(
+    services: SerialConsoleServices,
+    initialServerId?: string,
+    extraDeps?: Partial<WebviewControllerDeps>,
+    options?: Omit<SerialConsolePanelOptions, 'getInitialServerId'>
+  ): void {
+    const context = SerialConsolePanel.context
+    if (!context) {
+      void vscode.window.showErrorMessage(
+        '串口控制台面板未完成装配（缺少扩展上下文），请重新加载窗口。'
+      )
+      return
+    }
+    const existing = SerialConsolePanel.current
+    if (existing && WebviewController.get('serialConsole')) {
+      existing.controller?.reveal()
+      if (initialServerId) {
+        existing.initialServerId = initialServerId
+        existing.controller?.sendInit()
+      }
+      return
+    }
+    SerialConsolePanel.current = new SerialConsolePanel(
+      context,
+      services,
+      initialServerId,
+      extraDeps,
+      options
+    )
+  }
+
+  private controller: WebviewController | undefined
+  /** 预选连接目标（buildInit 消费一次后清空，避免序列化恢复时意外重连）。 */
+  private initialServerId: string | undefined
+
+  private constructor(
+    context: vscode.ExtensionContext,
+    services: SerialConsoleServices,
+    initialServerId: string | undefined,
+    extraDeps?: Partial<WebviewControllerDeps>,
+    options?: Omit<SerialConsolePanelOptions, 'getInitialServerId'>
+  ) {
+    this.initialServerId = initialServerId
+    const baseDeps = createSerialConsoleDeps(services, {
+      ...options,
+      getInitialServerId: () => {
+        const id = this.initialServerId
+        this.initialServerId = undefined
+        return id
+      },
+    })
+    this.controller = WebviewController.createOrShow(
+      'serialConsole',
+      context,
+      extraDeps ? { ...baseDeps, ...extraDeps } : baseDeps
+    )
+  }
+}

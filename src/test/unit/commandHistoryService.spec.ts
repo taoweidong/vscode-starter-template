@@ -110,4 +110,21 @@ describe('串口命令历史（自动去重 / MRU / 上限淘汰）', () => {
     const list = await service.list()
     expect(list.map((e) => e.command)).toEqual(['ok'])
   })
+
+  it('并发写入串行化：快速连发不同命令不丢条目（load→save 不交叉）', async () => {
+    const memento = createMementoStub()
+    const service = createCommandHistoryService(memento)
+    await Promise.all([
+      service.record('cmd-a'),
+      service.record('cmd-b'),
+      service.record('cmd-c'),
+      service.record('cmd-a'),
+    ])
+    const list = await service.list()
+    const counts = new Map(list.map((e) => [e.command, e.useCount]))
+    expect(counts.get('cmd-a')).toBe(2)
+    expect(counts.get('cmd-b')).toBe(1)
+    expect(counts.get('cmd-c')).toBe(1)
+    expect(list).toHaveLength(3)
+  })
 })

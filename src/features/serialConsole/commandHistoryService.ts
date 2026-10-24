@@ -45,6 +45,17 @@ export function createCommandHistoryService(
   const now = options.now ?? (() => Date.now())
   const key = options.key ?? STORAGE.serialCommandHistoryKey
 
+  /** 变更串行链：连续 record（如页面快速连发命令）各自 load→save 不交叉，防止旧值覆盖新值。 */
+  let queue: Promise<unknown> = Promise.resolve()
+  function enqueue<T>(job: () => Promise<T>): Promise<T> {
+    const next = queue.then(job, job)
+    queue = next.then(
+      () => undefined,
+      () => undefined
+    )
+    return next
+  }
+
   /** 读取并防御过滤：非对象 / command 非非空字符串的条目丢弃。 */
   const load = async (): Promise<HistoryEntry[]> => {
     const raw = memento.get<unknown>(key, [])
@@ -68,43 +79,47 @@ export function createCommandHistoryService(
     await memento.update(key, entries)
   }
 
-  return {
-    async record(command: string): Promise<HistoryEntry[]> {
-      const trimmed = command.trim()
-      const entries = await load()
-      if (trimmed.length === 0) return entries
-      const existing = entries.find((entry) => entry.command === trimmed)
-      if (existing) {
-        existing.lastUsedAt = now()
-        existing.useCount += 1
-        // MRU：移到顶部
-        const rest = entries.filter((entry) => entry !== existing)
-        const updated = [existing, ...rest].slice(0, HISTORY_LIMIT)
-        await save(updated)
-        return updated
-      }
-      const entry: HistoryEntry = {
-        id: globalThis.crypto.randomUUID(),
-        command: trimmed,
-        lastUsedAt: now(),
-        useCount: 1,
-      }
-      const updated = [entry, ...entries].slice(0, HISTORY_LIMIT)
+  const applyRecord = async (command: string): Promise<HistoryEntry[]> => {
+    const trimmed = command.trim()
+    const entries = await load()
+    if (trimmed.length === 0) return entries
+    const existing = entries.find((entry) => entry.command === trimmed)
+    if (existing) {
+      existing.lastUsedAt = now()
+      existing.useCount += 1
+      // MRU：移到顶部
+      const rest = entries.filter((entry) => entry !== existing)
+      const updated = [existing, ...rest].slice(0, HISTORY_LIMIT)
       await save(updated)
       return updated
-    },
+    }
+    const entry: HistoryEntry = {
+      id: globalThis.crypto.randomUUID(),
+      command: trimmed,
+      lastUsedAt: now(),
+      useCount: 1,
+    }
+    const updated = [entry, ...entries].slice(0, HISTORY_LIMIT)
+    await save(updated)
+    return updated
+  }
+
+  return {
+    record: (command: string): Promise<HistoryEntry[]> => enqueue(() => applyRecord(command)),
 
     list: load,
 
-    async remove(id: string): Promise<HistoryEntry[]> {
-      const entries = await load()
-      const updated = entries.filter((entry) => entry.id !== id)
-      if (updated.length !== entries.length) await save(updated)
-      return updated
-    },
+    remove: (id: string): Promise<HistoryEntry[]> =>
+      enqueue(async () => {
+        const entries = await load()
+        const updated = entries.filter((entry) => entry.id !== id)
+        if (updated.length !== entries.length) await save(updated)
+        return updated
+      }),
 
-    async clear(): Promise<void> {
-      await save([])
-    },
+    clear: (): Promise<void> =>
+      enqueue(async () => {
+        await save([])
+      }),
   }
 }
