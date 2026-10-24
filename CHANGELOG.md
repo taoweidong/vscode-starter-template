@@ -6,6 +6,36 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-24
+
+### 新增
+
+- **串口命令控制台**（superpowers 方法论驱动设计，规格见
+  `docs/superpowers/specs/2026-10-24-serial-command-console-design.md`）：
+  - 服务器信息录入：侧边栏「串口服务器」树视图 + 控制台页内 Schema 表单
+    （名称 / 串口 / 波特率 / 数据位 / 停止位 / 校验位 / 流控 / 命令换行符 / 自动登录 / 备注），
+    数据存工作区 `.vscode/serial-servers.json`（原子写 + 损坏自动备份），
+    登录密码仅存 VSCode SecretStorage（数据文件与日志零明文）。
+  - 串口命令下发：本机 COM 口（serialport@12，N-API 预编译跨平台），状态机驱动，
+    输出 40ms 批处理防消息洪泛，换行符按服务器配置追加，连接中可取消（代际守卫），
+    面板关闭自动断开；可选自动登录按时序发送凭据（凭据不进命令历史）。
+  - 历史命令（自动去重）：trim 精确匹配去重、MRU 置顶、useCount 累计、上限 200 条淘汰，
+    页面支持搜索 / 单击填入 / 双击直发 / 单条删除 / 清空。
+  - 实时输出：控制台流式渲染（自动滚动可暂停、缓冲裁剪、清空、发送本地回显）。
+  - 独立页面与菜单：`serialConsole` Webview 页面 + 6 个命令 + 树视图右键 / inline 菜单 +
+    `crudStarter.features.serialConsole` 特性开关。
+- **方法论资产**：安装 superpowers 技能集至 `~/.zcode/skills/`；设计规格与实现计划
+  落盘 `docs/superpowers/{specs,plans}/`。
+
+### 工程化
+
+- **首个生产依赖 serialport@^12.0.0**：esbuild external + `.vscodeignore` 否定项随 vsix
+  分发全平台 prebuild（vsix 约 2.5 MB）；门禁第 9 步升级为含依赖黑白名单 + prebuild
+  存在性校验 + 20 MB vsix 体积预算。
+- `deriveFormSchema` 参数化为通用字段表（条目 / 服务器领域共用，条目行为回归锁定）；
+  WebviewController 新增 `onDispose` 钩子（面板销毁释放会话资源）。
+- E2E：harness 页面注册表补 `serialConsole`；新增串口控制台 3 个用例（17 个全绿）。
+
 ### 工程化（M6 · 工程化与文档收口）
 
 - **ESLint + Prettier**：flat config（`eslint.config.ts`，@eslint/js + typescript-eslint 推荐 +
