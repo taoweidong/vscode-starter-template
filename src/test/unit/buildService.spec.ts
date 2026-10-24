@@ -11,8 +11,8 @@ import {
   spawnCommand,
   type CommandRunner,
   type CommandSpec,
-} from '../../features/build/buildService'
-import { TaskSignalSource } from '../../tasks/taskRunner'
+} from '../../extension/features/build/buildService'
+import { TaskSignalSource } from '../../extension/tasks/taskRunner'
 
 const CWD = 'E:/fake-workspace'
 /** Windows 下 npm/npx 是 .cmd，经 cmd.exe /c 包装（参数为固定常量）。 */

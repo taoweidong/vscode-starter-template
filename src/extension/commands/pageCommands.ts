@@ -4,7 +4,7 @@ import type { BuildService } from '../features/build/buildService'
 import type { InitService } from '../features/init/initService'
 import { findProbeByLabel } from '../tasks/probes'
 import type { TaskRunner } from '../tasks/taskRunner'
-import { WebviewController } from '../webview/host/webviewController'
+import { WebviewController } from '../../webview/host/webviewController'
 import { type CommandRegistrar, notifySuccess, showError, statusIcon } from './shared'
 
 /**

@@ -13,8 +13,8 @@ import { EnvironmentTreeProvider } from './providers/environmentTreeProvider'
 import { recheckProbeByLabel } from './tasks/environmentTask'
 import { TaskRunner } from './tasks/taskRunner'
 import { TASKS } from './tasks/taskRegistry'
-import { WebviewController, type WebviewControllerDeps } from './webview/host/webviewController'
-import type { WebviewPageId } from './webview/pages'
+import { WebviewController, type WebviewControllerDeps } from '../webview/host/webviewController'
+import type { WebviewPageId } from '../webview/pages'
 
 /**
  * 插件入口：只做「组装」——各功能视图、命令、启动任务。

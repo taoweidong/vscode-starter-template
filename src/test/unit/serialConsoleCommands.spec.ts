@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as vscode from 'vscode'
-import { registerSerialConsoleCommands } from '../../commands/serialConsoleCommands'
-import { COMMAND, CONFIG } from '../../constants'
-import { SerialConsoleController } from '../../features/serialConsole/serialConsoleController'
-import { SerialConsolePanel } from '../../features/serialConsole/serialConsolePanel'
-import type { SerialServerNode } from '../../features/serialConsole/serialServersTreeProvider'
+import { registerSerialConsoleCommands } from '../../extension/commands/serialConsoleCommands'
+import { COMMAND, CONFIG } from '../../extension/constants'
+import { SerialConsoleController } from '../../extension/features/serialConsole/serialConsoleController'
+import { SerialConsolePanel } from '../../extension/features/serialConsole/serialConsolePanel'
+import type { SerialServerNode } from '../../extension/features/serialConsole/serialServersTreeProvider'
 import { __resetStubs, __setConfig, __stubs, createExtensionContextStub } from './stubs/vscode'
 
 /** 串口控制台命令组：注册完整性 + 行为分支（特性开关守卫 / 删除确认 / 刷新）。 */

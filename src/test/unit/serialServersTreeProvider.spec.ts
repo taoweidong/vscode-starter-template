@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { COMMAND } from '../../constants'
-import type { SerialServer } from '../../features/serialConsole/models'
-import type { LinkStatusSnapshot } from '../../features/serialConsole/serialConsolePanel'
-import { SerialServersTreeProvider } from '../../features/serialConsole/serialServersTreeProvider'
+import { COMMAND } from '../../extension/constants'
+import type { SerialServer } from '../../extension/features/serialConsole/models'
+import type { LinkStatusSnapshot } from '../../extension/features/serialConsole/serialConsolePanel'
+import { SerialServersTreeProvider } from '../../extension/features/serialConsole/serialServersTreeProvider'
 
 function makeServer(overrides: Partial<SerialServer> = {}): SerialServer {
   return {

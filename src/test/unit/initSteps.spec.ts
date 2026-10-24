@@ -4,7 +4,7 @@ import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
 import { __resetStubs } from './stubs/vscode'
-import { createInitSteps } from '../../features/init/initSteps'
+import { createInitSteps } from '../../extension/features/init/initSteps'
 
 /**
  * 09 方案阶段 2 后的步骤注册表：dataFile / staticConfig 步骤已删除，

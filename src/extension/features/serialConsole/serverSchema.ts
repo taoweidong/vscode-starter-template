@@ -1,4 +1,4 @@
-import type { SchemaFieldDef } from '../../webview/formSchema'
+import type { SchemaFieldDef } from '../../../webview/formSchema'
 import {
   BAUD_RATES,
   LINE_ENDINGS,

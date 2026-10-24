@@ -3,7 +3,7 @@ import type {
   SerialPortInfoLike,
   SerialPortLike,
   SerialPortOpenOptions,
-} from '../../../../features/serialConsole/serialPortFactory'
+} from '../../../../extension/features/serialConsole/serialPortFactory'
 
 /**
  * 串口测试替身（单测/CI 不加载原生模块）：

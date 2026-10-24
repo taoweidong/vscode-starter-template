@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
 import { __resetStubs, __stubs } from './stubs/vscode'
-import { DEFAULT_TASK_TIMEOUT_MS, TaskRunner, TaskSignalSource } from '../../tasks/taskRunner'
-import type { StartupTask, TaskContext, TaskResult } from '../../tasks/types'
+import {
+  DEFAULT_TASK_TIMEOUT_MS,
+  TaskRunner,
+  TaskSignalSource,
+} from '../../extension/tasks/taskRunner'
+import type { StartupTask, TaskContext, TaskResult } from '../../extension/tasks/types'
 
 /** 构造合法任务结果。 */
 function okResult(id: string, title: string): TaskResult {

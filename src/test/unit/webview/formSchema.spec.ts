@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SERVER_FIELD_DEFS } from '../../../features/serialConsole/serverSchema'
+import { SERVER_FIELD_DEFS } from '../../../extension/features/serialConsole/serverSchema'
 import {
   deriveFormSchema,
   type FormField,

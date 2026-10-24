@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
 import { __resetStubs } from './stubs/vscode'
-import { TaskSignalSource } from '../../tasks/taskRunner'
+import { TaskSignalSource } from '../../extension/tasks/taskRunner'
 import {
   createEnvironmentTask,
   recheckProbeByLabel,
   type ProbeExecutor,
-} from '../../tasks/environmentTask'
-import { ENVIRONMENT_PROBES } from '../../tasks/probes'
-import { TaskRunner } from '../../tasks/taskRunner'
-import type { TaskContext } from '../../tasks/types'
+} from '../../extension/tasks/environmentTask'
+import { ENVIRONMENT_PROBES } from '../../extension/tasks/probes'
+import { TaskRunner } from '../../extension/tasks/taskRunner'
+import type { TaskContext } from '../../extension/tasks/types'
 
 /** 构造任务上下文（默认不取消）。 */
 function makeContext(signal = new TaskSignalSource()): TaskContext {

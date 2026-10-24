@@ -1,5 +1,5 @@
 /**
- * 扩展宿主构建脚本（esbuild）：src/extension.ts → dist/extension.js。
+ * 扩展宿主构建脚本（esbuild）：src/extension/index.ts → dist/extension.js。
  * 由根目录 esbuild.js 迁移而来（行为等价），补充产物体积输出。
  *
  *   npx tsx scripts/build-extension.ts               开发构建（sourcemap）
@@ -19,7 +19,7 @@ process.chdir(path.resolve(__dirname, '..'))
 
 async function main(): Promise<void> {
   const ctx = await esbuild.context({
-    entryPoints: ['src/extension.ts'],
+    entryPoints: ['src/extension/index.ts'],
     bundle: true,
     format: 'cjs',
     platform: 'node',

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SerialServer } from '../../features/serialConsole/models'
+import type { SerialServer } from '../../extension/features/serialConsole/models'
 import {
   SERIAL_DATA_BATCH_MS,
   createSerialLinkService,
   type LinkState,
-} from '../../features/serialConsole/serialLinkService'
+} from '../../extension/features/serialConsole/serialLinkService'
 import { FakeSerialPort, FakeSerialPortFactory } from './serialConsole/support/fakeSerialPort'
 
 function makeServer(overrides: Partial<SerialServer> = {}): SerialServer {

@@ -3,13 +3,13 @@ import * as nodeFs from 'node:fs'
 import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
-import type { SerialServer } from '../../features/serialConsole/models'
+import type { SerialServer } from '../../extension/features/serialConsole/models'
 import {
   JsonServerStore,
   MementoServerStore,
   SERVERS_SCHEMA_VERSION,
   createServerStore,
-} from '../../features/serialConsole/serverStore'
+} from '../../extension/features/serialConsole/serverStore'
 import { __resetStubs, __stubs, createMementoStub } from './stubs/vscode'
 
 /** 构造完整服务器条目（避开 normalize 补默认值的干扰）。 */

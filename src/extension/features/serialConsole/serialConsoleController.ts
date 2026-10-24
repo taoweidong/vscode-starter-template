@@ -1,5 +1,8 @@
 import * as vscode from 'vscode'
-import { WebviewController, type WebviewControllerDeps } from '../../webview/host/webviewController'
+import {
+  WebviewController,
+  type WebviewControllerDeps,
+} from '../../../webview/host/webviewController'
 import { createCommandHistoryService, type CommandHistoryService } from './commandHistoryService'
 import {
   createSerialConsoleDeps,

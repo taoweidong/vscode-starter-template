@@ -1,8 +1,11 @@
 import * as vscode from 'vscode'
 import { STORAGE } from '../../constants'
-import { deriveFormSchema, toFieldDefs } from '../../webview/formSchema'
-import type { HostMessage, SerialServerWire, WebviewMessage } from '../../webview/protocol'
-import { WebviewController, type WebviewControllerDeps } from '../../webview/host/webviewController'
+import { deriveFormSchema, toFieldDefs } from '../../../webview/formSchema'
+import type { HostMessage, SerialServerWire, WebviewMessage } from '../../../webview/protocol'
+import {
+  WebviewController,
+  type WebviewControllerDeps,
+} from '../../../webview/host/webviewController'
 import type { CommandHistoryService } from './commandHistoryService'
 import type { SerialServer } from './models'
 import { createServerId } from './models'

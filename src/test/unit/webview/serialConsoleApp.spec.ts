@@ -4,7 +4,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import App from '../../../webview/apps/serialConsole/App.vue'
 import { __setVsCodeApiForTest, type VsCodeApi } from '../../../webview/shared/useVsCodeApi'
 import { deriveFormSchema, toFieldDefs } from '../../../webview/formSchema'
-import { SERVER_FIELD_DEFS } from '../../../features/serialConsole/serverSchema'
+import { SERVER_FIELD_DEFS } from '../../../extension/features/serialConsole/serverSchema'
 import type { FieldDef, SerialServerWire } from '../../../webview/protocol'
 import { hostMessage, inputValue } from './appTestUtils'
 

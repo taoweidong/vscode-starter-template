@@ -4,12 +4,12 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { environmentTask } from '../tasks/environmentTask'
-import { TaskRunner } from '../tasks/taskRunner'
-import type { StartupTask, TaskResult } from '../tasks/types'
-import { BuildService } from '../features/build/buildService'
-import { InitService } from '../features/init/initService'
-import type { InitStep } from '../features/init/initSteps'
+import { environmentTask } from '../extension/tasks/environmentTask'
+import { TaskRunner } from '../extension/tasks/taskRunner'
+import type { StartupTask, TaskResult } from '../extension/tasks/types'
+import { BuildService } from '../extension/features/build/buildService'
+import { InitService } from '../extension/features/init/initService'
+import type { InitStep } from '../extension/features/init/initSteps'
 
 /**
  * 宿主集成测试（@vscode/test-electron，09 方案阶段 2 后）：

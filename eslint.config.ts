@@ -70,9 +70,9 @@ export default tseslint.config(
     },
   },
   {
-    // 任务 / 面板框架以闭包捕获 this（const source = this）实现 getter 转发与信号分发，
-    // 属既有架构模式（taskRunner / configFormPanel）
-    files: ['src/tasks/taskRunner.ts', 'src/features/featureConfig/configFormPanel.ts'],
+    // 任务框架以闭包捕获 this（const source = this）实现 getter 转发与信号分发，
+    // 属既有架构模式（taskRunner；09 方案阶段 4.3 迁至 src/extension/tasks/）
+    files: ['src/extension/tasks/taskRunner.ts'],
     rules: {
       '@typescript-eslint/no-this-alias': 'off',
     },
@@ -85,8 +85,9 @@ export default tseslint.config(
     },
   },
   {
-    // buildService：取消订阅句柄 let 声明后在子流程单点赋值（生命周期句柄模式）
-    files: ['src/features/build/buildService.ts'],
+    // buildService：取消订阅句柄 let 声明后在子流程单点赋值（生命周期句柄模式；
+    // 09 方案阶段 4.3 迁至 src/extension/features/build/）
+    files: ['src/extension/features/build/buildService.ts'],
     rules: {
       'prefer-const': 'off',
     },

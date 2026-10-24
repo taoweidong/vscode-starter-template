@@ -3,7 +3,7 @@ import * as nodeFs from 'node:fs'
 import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
-import { writeJsonAtomic } from '../../services/stores/atomicWrite'
+import { writeJsonAtomic } from '../../extension/services/stores/atomicWrite'
 
 /** 原子写工具（从 JsonFileStore 抽取，可靠性契约不变：M1 / NFR-01）。 */
 describe('writeJsonAtomic', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   HISTORY_LIMIT,
   createCommandHistoryService,
-} from '../../features/serialConsole/commandHistoryService'
+} from '../../extension/features/serialConsole/commandHistoryService'
 import { createMementoStub } from './stubs/vscode'
 
 /** 可控时钟：历史条目的 lastUsedAt 与 MRU 顺序判定。 */

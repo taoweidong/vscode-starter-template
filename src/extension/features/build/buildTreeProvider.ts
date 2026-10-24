@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { COMMAND } from '../../constants'
-import { escapeMarkdownInline } from '../../ui/markdown'
+import { escapeMarkdownInline } from '../../../ui/markdown'
 import type { BuildResult, BuildService, GitInfo } from './buildService'
 
 export type BuildNode =

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { showError, statusIcon } from '../../../commands/shared'
+import { showError, statusIcon } from '../../../extension/commands/shared'
 import { __resetStubs, __stubs } from '../stubs/vscode'
 
 /**

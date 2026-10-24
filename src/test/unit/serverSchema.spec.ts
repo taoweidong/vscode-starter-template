@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { coerceServerDraft, SERVER_FIELD_DEFS } from '../../features/serialConsole/serverSchema'
+import {
+  coerceServerDraft,
+  SERVER_FIELD_DEFS,
+} from '../../extension/features/serialConsole/serverSchema'
 
 /** 服务器领域校验与清洗（保存路径宁严勿宽；password 不进 draft）。 */
 describe('coerceServerDraft', () => {

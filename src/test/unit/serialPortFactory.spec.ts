@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createNodeSerialPortFactory,
   type SerialPortModuleLoader,
-} from '../../features/serialConsole/serialPortFactory'
+} from '../../extension/features/serialConsole/serialPortFactory'
 
 /** serialport 流式 API 的最小替身（构造即模拟 autoOpen 异步 open；记录构造参数）。 */
 class FakeSerialPortStream {

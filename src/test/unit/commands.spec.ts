@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
-import { registerCommands, type CommandDeps } from '../../commands'
-import { notifySuccess } from '../../commands/shared'
-import { COMMAND } from '../../constants'
+import { registerCommands, type CommandDeps } from '../../extension/commands'
+import { notifySuccess } from '../../extension/commands/shared'
+import { COMMAND } from '../../extension/constants'
 import { __resetStubs, __stubs, createExtensionContextStub } from './stubs/vscode'
 
 /**

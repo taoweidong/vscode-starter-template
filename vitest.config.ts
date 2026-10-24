@@ -26,13 +26,13 @@ export default defineConfig({
       // 协议收窄层、表单 schema 派生、字段适配、稳定序列化、命令注册工具、HTML 外壳。
       // 09 方案阶段 2：src/models/** 与 src/domain/** 随条目领域删除，移出统计面。
       include: [
-        'src/services/**',
+        'src/extension/services/**',
         'src/webview/protocol.ts',
         'src/webview/formSchema.ts',
         'src/webview/components/fieldAdapter.ts',
         'src/webview/host/webviewHtml.ts',
         'src/webview/shared/stableStringify.ts',
-        'src/commands/shared.ts',
+        'src/extension/commands/shared.ts',
       ],
       // 阈值为实测值减约 1pt 余量（2026-10 实测：整体 93.2L/88.85B/94.06F/93.36S；
       // services 92.5L、protocol 100）。09 方案阶段 2 后统计面缩小，以当轮实测复核为准。
@@ -41,7 +41,7 @@ export default defineConfig({
         functions: 93,
         statements: 92,
         branches: 87,
-        'src/services/**': { lines: 90, functions: 90, statements: 90, branches: 85 },
+        'src/extension/services/**': { lines: 90, functions: 90, statements: 90, branches: 85 },
         'src/webview/protocol.ts': { lines: 100, functions: 100, statements: 100, branches: 100 },
       },
     },

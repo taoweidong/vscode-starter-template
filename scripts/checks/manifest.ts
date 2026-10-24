@@ -150,11 +150,11 @@ export function checkManifestConsistency(root: string): void {
   }
   try {
     // C11 / 阶段 2.12：命令前缀从编译产物动态读取（改名阶段 5 只需改 constants.ts）
-    const { CONFIG } = requireFromRoot('./out/constants.js') as ConstantsModule
+    const { CONFIG } = requireFromRoot('./out/extension/constants.js') as ConstantsModule
     const section = CONFIG.section
 
     // constants.ts ↔ manifest 双向一致（命令与视图）
-    const src = readFileSync(path.join(root, 'src', 'constants.ts'), 'utf8')
+    const src = readFileSync(path.join(root, 'src', 'extension', 'constants.ts'), 'utf8')
     /** 截取某常量块：自声明起，至其后首个 `} as const`（分号风格无关）为止 */
     const constBlock = (name: string): string => {
       const start = src.indexOf(`export const ${name}`)
@@ -196,7 +196,7 @@ export function checkManifestConsistency(root: string): void {
 
     // ---- 命令注册检查：清单每个命令必须在 src/commands/ 下有 register(COMMAND.xxx ----
     // 扫描目录全部 .ts（命令可按场景拆分；旧实现硬编码 index.ts，拆分即失效）
-    const commandsDir = path.join(root, 'src', 'commands')
+    const commandsDir = path.join(root, 'src', 'extension', 'commands')
     const commandsSrc = readdirSync(commandsDir)
       .filter((file) => file.endsWith('.ts'))
       .map((file) => readFileSync(path.join(commandsDir, file), 'utf8'))

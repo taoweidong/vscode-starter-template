@@ -6,10 +6,10 @@ import {
   SerialConsolePanel,
   type SecretStorageLike,
   type SerialConsoleServices,
-} from '../../../features/serialConsole/serialConsolePanel'
-import { createCommandHistoryService } from '../../../features/serialConsole/commandHistoryService'
-import type { SerialServer } from '../../../features/serialConsole/models'
-import type { IServerStore } from '../../../features/serialConsole/serverStore'
+} from '../../../extension/features/serialConsole/serialConsolePanel'
+import { createCommandHistoryService } from '../../../extension/features/serialConsole/commandHistoryService'
+import type { SerialServer } from '../../../extension/features/serialConsole/models'
+import type { IServerStore } from '../../../extension/features/serialConsole/serverStore'
 import { FakeSerialPort } from '../serialConsole/support/fakeSerialPort'
 import { FakeSerialPortFactory } from '../serialConsole/support/fakeSerialPort'
 import { lastPosted, makePanelDeps, type FakePanel } from './support/fakePanel'

@@ -4,10 +4,10 @@ import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
 import { __resetStubs, __stubs } from './stubs/vscode'
-import { INIT_STEP_TIMEOUT_MS, InitService } from '../../features/init/initService'
-import { createInitSteps } from '../../features/init/initSteps'
-import type { InitStep } from '../../features/init/initSteps'
-import type { TaskResult } from '../../tasks/types'
+import { INIT_STEP_TIMEOUT_MS, InitService } from '../../extension/features/init/initService'
+import { createInitSteps } from '../../extension/features/init/initSteps'
+import type { InitStep } from '../../extension/features/init/initSteps'
+import type { TaskResult } from '../../extension/tasks/types'
 
 const outputLines = (): string[] => __stubs.outputLines
 

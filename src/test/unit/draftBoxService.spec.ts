@@ -3,8 +3,8 @@ import * as nodeFs from 'node:fs'
 import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
-import { STORAGE } from '../../constants'
-import { DraftBoxService } from '../../features/drafts/draftBoxService'
+import { STORAGE } from '../../extension/constants'
+import { DraftBoxService } from '../../extension/features/drafts/draftBoxService'
 import { __resetStubs } from './stubs/vscode'
 
 /**
