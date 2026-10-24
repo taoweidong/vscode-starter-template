@@ -8,16 +8,11 @@ import { INIT_STEP_TIMEOUT_MS, InitService } from '../../features/init/initServi
 import { createInitSteps } from '../../features/init/initSteps'
 import type { InitStep } from '../../features/init/initSteps'
 import type { TaskResult } from '../../tasks/types'
-import type { StaticConfigService } from '../../features/staticConfig/staticConfigService'
 
 const outputLines = (): string[] => __stubs.outputLines
 
 function makeService(steps: InitStep[]): InitService {
-  return new InitService(
-    steps,
-    vscode.window.createOutputChannel('CRUD Starter Test'),
-    undefined as unknown as StaticConfigService
-  )
+  return new InitService(steps, vscode.window.createOutputChannel('CRUD Starter Test'))
 }
 
 /** T5.4 / P1-12：InitService 单步互斥 + 步骤超时。 */
@@ -156,7 +151,6 @@ describe('createInitSteps：envSnapshot 快照复用', () => {
     return envStep.run({
       workspaceRoot: vscode.Uri.file(rootDir),
       output: vscode.window.createOutputChannel('CRUD Starter Test'),
-      staticConfig: undefined as unknown as never,
     })
   }
 

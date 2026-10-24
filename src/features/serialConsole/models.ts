@@ -79,7 +79,7 @@ export const DEFAULT_SERIAL_PARAMS = {
 /**
  * 生成服务器 ID。
  *
- * 与 models/item.ts 的 createId 同理经 globalThis.crypto：避免把 Node 内建模块
+ * 经 globalThis.crypto 生成 id：避免把 Node 内建模块
  * 依赖引入可能被共享类型程序追溯的链路。
  */
 export function createServerId(): string {

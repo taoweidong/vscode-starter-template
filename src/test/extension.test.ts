@@ -4,42 +4,18 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { type Item, type ItemDraft } from '../models/item'
-import { ItemService, ItemValidationError } from '../services/itemService'
-import { JsonFileStore, StoreCorruptedError } from '../services/stores/jsonFileStore'
-import { MementoStore } from '../services/stores/mementoStore'
-import type { IItemStore } from '../services/stores/itemStore'
-import { ItemsTreeDataProvider } from '../providers/itemsTreeDataProvider'
 import { environmentTask } from '../tasks/environmentTask'
 import { TaskRunner } from '../tasks/taskRunner'
 import type { StartupTask, TaskResult } from '../tasks/types'
 import { BuildService } from '../features/build/buildService'
-import {
-  FEATURE_FLAGS,
-  getFeatureValue,
-  setFeatureValue,
-  toFeatureFormFields,
-} from '../features/featureConfig/featureFlags'
 import { InitService } from '../features/init/initService'
 import type { InitStep } from '../features/init/initSteps'
-import { StaticConfigService } from '../features/staticConfig/staticConfigService'
 
-/** 测试用内存数据源：验证服务层逻辑，不依赖文件系统。 */
-class MemoryStore implements IItemStore {
-  data: Item[] = []
-
-  async load(): Promise<Item[]> {
-    return this.data.map((item) => ({ ...item }))
-  }
-
-  async save(items: Item[]): Promise<void> {
-    this.data = items.map((item) => ({ ...item }))
-  }
-}
-
-function draft(name: string, extra: Partial<ItemDraft> = {}): ItemDraft {
-  return { name, category: '', description: '', priority: 'medium', tags: [], ...extra }
-}
+/**
+ * 宿主集成测试（@vscode/test-electron，09 方案阶段 2 后）：
+ * 条目 / 特性配置 / 静态配置 / 存储层四组已随领域删除，
+ * 保留启动任务框架 / 环境初始化 / 分支编译三组（其余领域的深度覆盖在单测）。
+ */
 
 /**
  * 清理测试临时目录。Windows 下 git 仓库的 .git 对象文件为只读，rmSync 会 EPERM——
@@ -69,78 +45,6 @@ function rmTempDir(dir: string): void {
   clearReadOnly(dir)
   fs.rmSync(dir, { recursive: true, force: true })
 }
-
-suite('ItemService 增删改查', () => {
-  let service: ItemService
-
-  setup(() => {
-    service = new ItemService(new MemoryStore())
-  })
-
-  test('新增后可查询到条目，字段被清洗（标签去重去空白）', async () => {
-    const item = await service.create(
-      draft('任务A', { category: '工作', priority: 'high', tags: [' x ', 'y', 'x'] })
-    )
-    const all = await service.list()
-    assert.strictEqual(all.length, 1)
-    assert.strictEqual(all[0].id, item.id)
-    assert.deepStrictEqual(item.tags, ['x', 'y'])
-  })
-
-  test('名称为空时创建失败（ItemValidationError）', async () => {
-    await assert.rejects(() => service.create(draft('   ')), ItemValidationError)
-  })
-
-  test('更新条目：updatedAt 变化而 createdAt 不变', async () => {
-    const created = await service.create(draft('旧名'))
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    const updated = await service.update(created.id, draft('新名', { description: 'd' }))
-    assert.strictEqual(updated.name, '新名')
-    assert.strictEqual(updated.createdAt, created.createdAt)
-    assert.notStrictEqual(updated.updatedAt, created.updatedAt)
-  })
-
-  test('删除条目；重复删除返回 undefined', async () => {
-    const created = await service.create(draft('待删'))
-    const removed = await service.remove(created.id)
-    assert.ok(removed)
-    const again = await service.remove(created.id)
-    assert.strictEqual(again, undefined)
-    assert.strictEqual((await service.list()).length, 0)
-  })
-
-  test('更新条目可修改优先级', async () => {
-    const created = await service.create(draft('P'))
-    const updated = await service.update(created.id, draft('P', { priority: 'high' }))
-    assert.strictEqual(updated.priority, 'high')
-  })
-
-  test('克隆条目名称带（副本）后缀', async () => {
-    const created = await service.create(draft('原始', { category: '工作' }))
-    const copy = await service.duplicate(created.id)
-    assert.strictEqual(copy.name, '原始（副本）')
-    assert.strictEqual(copy.category, '工作')
-    assert.notStrictEqual(copy.id, created.id)
-  })
-
-  test('过滤：按关键字匹配，清空后恢复全量', async () => {
-    await service.create(draft('前端重构', { tags: ['web'] }))
-    await service.create(draft('后端接口', { tags: ['api'] }))
-    service.setFilter('api')
-    const filtered = await service.list()
-    assert.strictEqual(filtered.length, 1)
-    assert.strictEqual(filtered[0].name, '后端接口')
-    service.setFilter('')
-    assert.strictEqual((await service.list()).length, 2)
-  })
-
-  test('getCategories 返回去重后的分类', async () => {
-    await service.create(draft('A', { category: '工作' }))
-    await service.create(draft('B', { category: '工作' }))
-    await service.create(draft('C', { category: '生活' }))
-    assert.deepStrictEqual(await service.getCategories(), ['工作', '生活'])
-  })
-})
 
 suite('启动任务框架', () => {
   function fakeTask(id: string, title: string, behavior: () => Promise<void>): StartupTask {
@@ -232,25 +136,6 @@ suite('启动任务框架', () => {
   })
 })
 
-suite('特性配置', () => {
-  test('开关读写走全局设置并可还原', async () => {
-    const original = getFeatureValue('confirmDelete')
-    await setFeatureValue('confirmDelete', !original)
-    assert.strictEqual(getFeatureValue('confirmDelete'), !original)
-    await setFeatureValue('confirmDelete', original)
-    assert.strictEqual(getFeatureValue('confirmDelete'), original)
-  })
-
-  test('toFeatureFormFields 生成 boolean 表单字段（供配置页面复用表单框架）', () => {
-    const fields = toFeatureFormFields()
-    assert.strictEqual(fields.length, FEATURE_FLAGS.length)
-    for (const field of fields) {
-      assert.strictEqual(field.type, 'boolean')
-      assert.ok(['true', 'false'].includes(field.defaultValue ?? ''))
-    }
-  })
-})
-
 suite('环境初始化', () => {
   test('步骤顺序执行：失败不阻断后续步骤', async () => {
     const steps: InitStep[] = [
@@ -266,7 +151,7 @@ suite('环境初始化', () => {
       { id: 'c', title: 'C', description: '', run: async () => 'ok-c' },
     ]
     const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    const svc = new InitService(steps, output, new StaticConfigService(output, () => undefined))
+    const svc = new InitService(steps, output)
     await svc.runAll()
     const states = svc.getStates()
     assert.strictEqual(states[0].status, 'done')
@@ -291,7 +176,7 @@ suite('环境初始化', () => {
       { id: 'b', title: 'B', description: '', run: async () => 'ok-b' },
     ]
     const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    const svc = new InitService(steps, output, new StaticConfigService(output, () => undefined))
+    const svc = new InitService(steps, output)
     const running = svc.runAll()
     await new Promise((resolve) => setTimeout(resolve, 50))
     assert.strictEqual(svc.isRunning, true)
@@ -300,39 +185,6 @@ suite('环境初始化', () => {
     releaseFirst()
     await running
     assert.strictEqual(svc.getStates().find((state) => state.id === 'b')?.status, 'done')
-  })
-})
-
-suite('静态配置', () => {
-  test('ensureDefault 生成默认配置并可加载为分组条目', async () => {
-    const dir = path.join(os.tmpdir(), `crud-static-test-${Date.now()}`)
-    const root = vscode.Uri.file(dir)
-    const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    const svc = new StaticConfigService(output, () => root)
-    try {
-      assert.strictEqual(await svc.ensureDefault(), 'created')
-      assert.strictEqual(await svc.ensureDefault(), 'exists')
-      await svc.load()
-      const sections = svc.getSections()
-      assert.ok(sections.length >= 3, '应至少包含 project/build/runtime 三个分组')
-      const build = sections.find((section) => section.title === 'build')
-      assert.ok(build, '应包含 build 分组')
-      const outputDir = build.entries.find((entry) => entry.key === 'outputDir')
-      assert.strictEqual(outputDir?.value, 'dist')
-    } finally {
-      // 清理临时目录，避免多次运行测试后残留
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  test('flatten 拍平嵌套 JSON 为分组条目', () => {
-    const sections = StaticConfigService.flatten({ name: 'demo', nested: { a: 1, b: true } })
-    assert.strictEqual(sections[0].entries[0].value, 'demo')
-    const nested = sections.find((section) => section.title === 'nested')
-    assert.deepStrictEqual(
-      nested?.entries.map((entry) => entry.key),
-      ['a', 'b']
-    )
   })
 })
 
@@ -372,145 +224,7 @@ suite('分支编译', () => {
     const info = await svc.getGitInfo()
     assert.strictEqual(info.available, false)
   })
-})
 
-suite('JsonFileStore', () => {
-  function sampleItem(id: string, name: string): Item {
-    return {
-      id,
-      name,
-      category: '测试',
-      description: '',
-      priority: 'medium',
-      tags: ['t'],
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    }
-  }
-
-  test('文件不存在返回空数组；save→load 往返一致', async () => {
-    const dir = path.join(os.tmpdir(), `crud-store-test-${Date.now()}`)
-    const store = new JsonFileStore(vscode.Uri.file(path.join(dir, 'data', 'items.json')))
-    try {
-      assert.deepStrictEqual(await store.load(), [])
-      const items = [sampleItem('1', '甲'), sampleItem('2', '乙')]
-      await store.save(items)
-      assert.deepStrictEqual(await store.load(), items)
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  test('文件损坏时按决策继续：continue-empty 返回空数据，原文件保留且生成 .bak（T1.2 新语义）', async () => {
-    const dir = path.join(os.tmpdir(), `crud-store-corrupt-${Date.now()}`)
-    const fileUri = vscode.Uri.file(path.join(dir, 'items.json'))
-    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
-    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('{corrupt', 'utf8'))
-    try {
-      const store = new JsonFileStore(fileUri, { onCorrupted: async () => 'continue-empty' })
-      assert.deepStrictEqual(await store.load(), [])
-      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(fileUri, '..'))
-      assert.ok(
-        entries.some(([name]) => name.endsWith('.bak')),
-        '应生成损坏备份文件'
-      )
-      assert.ok(
-        entries.some(([name]) => name === 'items.json'),
-        '原损坏文件应保留在原位（复制备份，不移走）'
-      )
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  test('未注入 onCorrupted 回调时 rejects StoreCorruptedError（原文件与备份保留）', async () => {
-    const dir = path.join(os.tmpdir(), `crud-store-corrupt-noop-${Date.now()}`)
-    const fileUri = vscode.Uri.file(path.join(dir, 'items.json'))
-    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
-    await vscode.workspace.fs.writeFile(fileUri, Buffer.from('{corrupt', 'utf8'))
-    try {
-      const store = new JsonFileStore(fileUri)
-      await assert.rejects(() => store.load(), StoreCorruptedError)
-      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(fileUri, '..'))
-      assert.ok(
-        entries.some(([name]) => name.endsWith('.bak')),
-        '应生成损坏备份文件'
-      )
-      assert.ok(
-        entries.some(([name]) => name === 'items.json'),
-        '原损坏文件应保留在原位'
-      )
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true })
-    }
-  })
-})
-
-suite('MementoStore', () => {
-  test('读写往返（模拟 Memento）', async () => {
-    const backing = new Map<string, unknown>()
-    const memento = {
-      get: (key: string, defaultValue?: unknown) =>
-        backing.has(key) ? backing.get(key) : defaultValue,
-      update: async (key: string, value: unknown) => {
-        backing.set(key, value)
-      },
-    } as unknown as vscode.Memento
-    const store = new MementoStore(memento, 'test.key')
-    assert.deepStrictEqual(await store.load(), [])
-    await store.save([
-      {
-        id: '1',
-        name: '甲',
-        category: '',
-        description: '',
-        priority: 'low',
-        tags: [],
-        createdAt: '',
-        updatedAt: '',
-      },
-    ])
-    assert.strictEqual((await store.load()).length, 1)
-  })
-})
-
-suite('条目树视图', () => {
-  test('按分类分组，子节点归属正确', async () => {
-    const service = new ItemService(new MemoryStore())
-    await service.create(draft('甲', { category: '工作' }))
-    await service.create(draft('乙', { category: '工作' }))
-    await service.create(draft('丙', { category: '生活' }))
-    const provider = new ItemsTreeDataProvider(service)
-
-    const roots = await provider.getChildren()
-    const work = roots.find((node) => node.kind === 'category' && node.label === '工作')
-    assert.ok(work && work.kind === 'category' && work.count === 2, '「工作」分组应有 2 项')
-    const life = roots.find((node) => node.kind === 'category' && node.label === '生活')
-    assert.ok(life && life.kind === 'category' && life.count === 1)
-
-    const children = await provider.getChildren({ kind: 'category', label: '工作', count: 2 })
-    assert.strictEqual(children.length, 2)
-    assert.ok(children.every((node) => node.kind === 'item'))
-    assert.deepStrictEqual(
-      children.map((node) => (node.kind === 'item' ? node.item.name : '')),
-      ['甲', '乙']
-    )
-  })
-
-  test('过滤生效时平铺展示匹配项', async () => {
-    const service = new ItemService(new MemoryStore())
-    await service.create(draft('前端重构', { tags: ['web'] }))
-    await service.create(draft('后端接口', { tags: ['api'] }))
-    service.setFilter('api')
-    const provider = new ItemsTreeDataProvider(service)
-    const roots = await provider.getChildren()
-    assert.strictEqual(roots.length, 1)
-    assert.ok(roots[0].kind === 'item' && roots[0].item.name === '后端接口')
-    assert.ok(service.filtered)
-  })
-})
-
-suite('分支编译（补充）', () => {
   test('未打开工作区时返回 error 结果而不抛错', async () => {
     const output = vscode.window.createOutputChannel('CRUD Starter Test')
     const svc = new BuildService(output, () => undefined)

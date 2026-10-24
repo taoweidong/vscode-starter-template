@@ -16,7 +16,7 @@ import { coerceServerDraft, SERVER_FIELD_DEFS } from './serverSchema'
 import type { IServerStore } from './serverStore'
 
 /**
- * 串口命令控制台面板（宿主侧编排，模式对齐 importWizardPanel）。
+ * 串口命令控制台面板（宿主侧编排）。
  *
  * 职责：
  * - init 下发表单 Schema（SERVER_FIELD_DEFS 派生）+ 服务器列表 + 命令历史；

@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import type { StaticConfigService } from '../staticConfig/staticConfigService'
 import type { InitContext, InitStep } from './initSteps'
 
 export type StepStatus = 'idle' | 'running' | 'done' | 'failed'
@@ -34,8 +33,7 @@ export class InitService implements vscode.Disposable {
 
   constructor(
     private readonly steps: InitStep[],
-    private readonly output: vscode.OutputChannel,
-    private readonly staticConfig: StaticConfigService
+    private readonly output: vscode.OutputChannel
   ) {
     this.states = steps.map((step) => ({
       id: step.id,
@@ -101,7 +99,6 @@ export class InitService implements vscode.Disposable {
     const ctx: InitContext = {
       workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri,
       output: this.output,
-      staticConfig: this.staticConfig,
     }
     // 步骤超时（P1-12）：挂死步骤（如不可取消的全量环境探测）被裁决为 failed
     const timeoutMs = step.timeoutMs ?? INIT_STEP_TIMEOUT_MS

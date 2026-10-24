@@ -6,6 +6,9 @@
  * - 宿主与 Webview 共享本文件：禁止 import vscode / DOM / Node 专属 API；
  * - 守卫逐字段窄化：null、缺字段、未知 type 一律拒绝，未知消息只记日志不抛错；
  * - 向后兼容地扩展：新增消息只追加联合分支与守卫 case，不改既有分支形状。
+ * - 09 方案阶段 2：importWizard 的 8 条分支（selectFolder / importPreview /
+ *   importProgress / importDone / browseFolder / requestPreview / executeImport /
+ *   cancelImport）随条目领域删除，当前 22 条 = 通用 7 + 串口 15。
  */
 
 /** init 消息携带的表单字段描述（结构最小集；完整 Schema 由领域层提供，M5-T5.1 接入）。 */
@@ -15,27 +18,6 @@ export interface FieldDef {
   type: string
   /** 允许附加上位置元数据（placeholder / hint / options 等） */
   [extra: string]: unknown
-}
-
-/** 批量导入：预览文件条目（宿主扫描文件夹后下发；执行时原样回传）。 */
-export interface ImportPreviewFile {
-  /** 文件名（去重比对与条目名称都用它） */
-  name: string
-  /** 文件绝对路径（写入条目描述） */
-  path: string
-  /** 与现有条目同名：页面标注「已存在」并默认不勾选，执行时按跳过统计 */
-  exists: boolean
-}
-
-/** 批量导入：执行结果汇总（成功 N / 跳过 M / 失败 K + 明细）。 */
-export interface ImportResult {
-  created: number
-  skipped: number
-  failed: number
-  /** 用户中途取消（已完成的部分保留） */
-  cancelled: boolean
-  /** 失败明细（文件名 + 原因） */
-  failures?: { name: string; reason: string }[]
 }
 
 /* ============ 串口命令控制台：协议层线类型（完整模型见 features/serialConsole） ============ */
@@ -88,14 +70,6 @@ export type HostMessage =
     }
   | { type: 'submitAck'; ok: true }
   | { type: 'error'; message: string; field?: string }
-  /** 「浏览…」应答：用户选中的文件夹；取消为 null */
-  | { type: 'selectFolder'; folder: string | null }
-  /** 预览应答：文件夹扫描结果（已按名称去重标注、上限 50） */
-  | { type: 'importPreview'; files: ImportPreviewFile[] }
-  /** 执行进度（done 为已完成个数） */
-  | { type: 'importProgress'; done: number; total: number }
-  /** 执行结束（成功 / 取消 / 部分失败都走本消息） */
-  | { type: 'importDone'; result: ImportResult }
   /** 检测到的本机串口（页面「检测串口」应答） */
   | { type: 'serialPorts'; ports: SerialPortBrief[] }
   /** 服务器列表全量（init 后增删改均推送最新列表） */
@@ -113,14 +87,6 @@ export type WebviewMessage =
   | { type: 'dirty'; dirty: boolean }
   | { type: 'submit'; draft: Record<string, unknown> }
   | { type: 'cancel' }
-  /** 请求宿主弹出文件夹选择框（showOpenDialog） */
-  | { type: 'browseFolder' }
-  /** 请求宿主扫描文件夹并回预览 */
-  | { type: 'requestPreview'; folder: string }
-  /** 开始执行导入（files 为预览列表的勾选子集） */
-  | { type: 'executeImport'; files: ImportPreviewFile[] }
-  /** 取消执行（已完成批次保留） */
-  | { type: 'cancelImport' }
   /** 请求枚举本机串口 */
   | { type: 'serialPortsRequest' }
   /** 请求服务器列表全量 */
@@ -152,29 +118,6 @@ function isFieldDef(v: unknown): v is FieldDef {
     typeof v.key === 'string' &&
     typeof v.label === 'string' &&
     typeof v.type === 'string'
-  )
-}
-
-function isImportPreviewFile(v: unknown): v is ImportPreviewFile {
-  return (
-    isPlainObject(v) &&
-    typeof v.name === 'string' &&
-    typeof v.path === 'string' &&
-    typeof v.exists === 'boolean'
-  )
-}
-
-function isImportFileList(v: unknown): v is ImportPreviewFile[] {
-  return Array.isArray(v) && v.every(isImportPreviewFile)
-}
-
-function isImportFailureList(v: unknown): v is { name: string; reason: string }[] {
-  return (
-    Array.isArray(v) &&
-    v.every(
-      (entry) =>
-        isPlainObject(entry) && typeof entry.name === 'string' && typeof entry.reason === 'string'
-    )
   )
 }
 
@@ -234,14 +177,6 @@ export function isWebviewMessage(v: unknown): v is WebviewMessage {
       return isPlainObject(v.draft)
     case 'cancel':
       return true
-    case 'browseFolder':
-      return true
-    case 'requestPreview':
-      return typeof v.folder === 'string'
-    case 'executeImport':
-      return isImportFileList(v.files)
-    case 'cancelImport':
-      return true
     case 'serialPortsRequest':
       return true
     case 'serialServersRequest':
@@ -285,21 +220,6 @@ export function isHostMessage(v: unknown): v is HostMessage {
       return v.ok === true
     case 'error':
       return typeof v.message === 'string' && (v.field === undefined || typeof v.field === 'string')
-    case 'selectFolder':
-      return typeof v.folder === 'string' || v.folder === null
-    case 'importPreview':
-      return isImportFileList(v.files)
-    case 'importProgress':
-      return typeof v.done === 'number' && typeof v.total === 'number'
-    case 'importDone':
-      return (
-        isPlainObject(v.result) &&
-        typeof v.result.created === 'number' &&
-        typeof v.result.skipped === 'number' &&
-        typeof v.result.failed === 'number' &&
-        typeof v.result.cancelled === 'boolean' &&
-        (v.result.failures === undefined || isImportFailureList(v.result.failures))
-      )
     case 'serialPorts':
       return Array.isArray(v.ports) && v.ports.every(isSerialPortBrief)
     case 'serialServers':

@@ -1,42 +1,18 @@
 import * as vscode from 'vscode'
-import { CONFIG, STORAGE } from '../../constants'
-import { resolveStorageUri, storageRelativePath } from '../../services/storagePath'
-import { STORAGE_SCHEMA_VERSION } from '../../services/stores/jsonFileStore'
 import { environmentTask } from '../../tasks/environmentTask'
 import { TaskSignalSource } from '../../tasks/taskRunner'
 import type { TaskResult } from '../../tasks/types'
-import { StaticConfigService } from '../staticConfig/staticConfigService'
 
-/** 数据文件路径：跟随 crudStarter.storagePath 配置，经白名单校验（T1.1 / P0-03）。 */
-function resolveDataFileUri(workspaceRoot: vscode.Uri): {
-  fileUri: vscode.Uri
-  relative: string
-  warning?: string
-} {
-  const configured = vscode.workspace
-    .getConfiguration(CONFIG.section)
-    .get<string>(CONFIG.storagePath, STORAGE.defaultFileName)
-  const resolved = resolveStorageUri(workspaceRoot, configured)
-  if (resolved.ok) {
-    return {
-      fileUri: resolved.uri,
-      relative: storageRelativePath(workspaceRoot, resolved.uri),
-    }
-  }
-  // 非法配置：回退默认路径并提示，不中断初始化
-  return {
-    fileUri: vscode.Uri.joinPath(workspaceRoot, STORAGE.defaultFileName),
-    relative: STORAGE.defaultFileName,
-    warning: `CRUD Starter：crudStarter.storagePath 配置值「${configured}」无效（${resolved.reason}），已回退默认路径 ${STORAGE.defaultFileName}。`,
-  }
-}
+/**
+ * 初始化步骤定义（09 方案阶段 2：dataFile / staticConfig 两步骤随
+ * storagePath 配置与静态配置领域删除，5 → 3——workspace / artifactDir / envSnapshot）。
+ */
 
 /** 初始化步骤的执行上下文。 */
 export interface InitContext {
   /** 当前工作区根目录（未打开工作区时为 undefined） */
   workspaceRoot?: vscode.Uri
   output: vscode.OutputChannel
-  staticConfig: StaticConfigService
 }
 
 /**
@@ -63,15 +39,6 @@ export interface CreateInitStepsOptions {
   getEnvironmentSnapshot?: () => TaskResult | undefined
 }
 
-async function pathExists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
   return [
     {
@@ -83,50 +50,6 @@ export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
           throw new Error('未打开工作区，无法初始化。请先打开一个文件夹。')
         }
         return `工作区就绪：${ctx.workspaceRoot.fsPath}`
-      },
-    },
-    {
-      id: 'dataFile',
-      title: '初始化数据文件',
-      description: '确保数据文件存在（路径跟随 crudStarter.storagePath 配置，不存在则创建空数据）',
-      async run(ctx) {
-        if (!ctx.workspaceRoot) {
-          throw new Error('未打开工作区。')
-        }
-        const { fileUri, relative, warning } = resolveDataFileUri(ctx.workspaceRoot)
-        if (warning) {
-          void vscode.window.showWarningMessage(warning)
-        }
-        if (await pathExists(fileUri)) {
-          return '数据文件已存在，跳过创建。'
-        }
-        await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
-        // R-C-12：写 v2 信封（与 save 一致）——写 '[]' 会让此后每次 load 都触发
-        // 「旧版数组格式」告警，直到首次保存才迁移
-        await vscode.workspace.fs.writeFile(
-          fileUri,
-          Buffer.from(
-            `${JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, items: [] }, null, 2)}\n`,
-            'utf8'
-          )
-        )
-        return `已创建：${relative}`
-      },
-    },
-    {
-      id: 'staticConfig',
-      title: '生成静态配置',
-      description: '生成 .vscode/crud-starter.config.json 默认静态配置（已存在则跳过）',
-      async run(ctx) {
-        const result = await ctx.staticConfig.ensureDefault()
-        if (result === 'created') {
-          await ctx.staticConfig.load()
-          return '已生成默认静态配置（可在「静态配置」视图查看）。'
-        }
-        if (result === 'exists') {
-          return '静态配置已存在，跳过生成。'
-        }
-        throw new Error('未打开工作区。')
       },
     },
     {

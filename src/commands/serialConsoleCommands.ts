@@ -1,9 +1,8 @@
 import * as vscode from 'vscode'
-import { COMMAND } from '../constants'
+import { COMMAND, CONFIG } from '../constants'
 import type { SerialConsoleController } from '../features/serialConsole/serialConsoleController'
 import { SerialConsolePanel } from '../features/serialConsole/serialConsolePanel'
 import type { SerialServerNode } from '../features/serialConsole/serialServersTreeProvider'
-import { getFeatureValue } from '../features/featureConfig/featureFlags'
 import type { CommandRegistrar } from './shared'
 
 /**
@@ -11,7 +10,12 @@ import type { CommandRegistrar } from './shared'
  *
  * 服务器的新增与编辑在控制台页面内完成（页面持有表单），命令只负责
  * 打开页面并（可能）预选目标；删除在树侧落库（controller.deleteServer）。
+ *
+ * 09 方案阶段 2（S1/S3）：特性开关体系退场——
+ * - S1：serialConsole 开关改为普通配置项 crudStarter.serialConsoleEnabled；
+ * - S3：删除确认不再读 confirmDelete 开关，一律模态确认。
  */
+
 export interface SerialConsoleCommandDeps {
   controller: SerialConsoleController
   /** 扩展上下文：SerialConsolePanel.configure 已由 extension.ts 完成，此处仅类型完备。 */
@@ -24,13 +28,18 @@ export function registerSerialConsoleCommands(
 ): void {
   const { controller } = deps
 
-  /** 特性开关关闭时命令给出可操作提示（开关位于特性配置页 / 设置）。 */
+  /** 开关关闭时命令给出可操作提示（设置项 crudStarter.serialConsoleEnabled）。 */
+  const isEnabled = (): boolean =>
+    vscode.workspace
+      .getConfiguration(CONFIG.section)
+      .get<boolean>(CONFIG.serialConsoleEnabled, true)
+
   const guard =
     <TArgs extends unknown[]>(run: (...args: TArgs) => unknown): ((...args: TArgs) => unknown) =>
     (...args: TArgs) => {
-      if (!getFeatureValue('serialConsole')) {
+      if (!isEnabled()) {
         void vscode.window.showInformationMessage(
-          '串口控制台功能已关闭：可在「特性配置」或设置（crudStarter.features.serialConsole）中开启。'
+          '串口控制台功能已关闭：可在设置（crudStarter.serialConsoleEnabled）中开启。'
         )
         return
       }
@@ -68,15 +77,14 @@ export function registerSerialConsoleCommands(
       if (!server) {
         return
       }
-      if (getFeatureValue('confirmDelete')) {
-        const choice = await vscode.window.showWarningMessage(
-          `确定删除服务器「${server.name}」（${server.serialPath}）？已保存的登录密码将一并清除。`,
-          { modal: true },
-          '删除'
-        )
-        if (choice !== '删除') {
-          return
-        }
+      // S3：一律模态确认（原 confirmDelete 特性开关已随体系退场）
+      const choice = await vscode.window.showWarningMessage(
+        `确定删除服务器「${server.name}」（${server.serialPath}）？已保存的登录密码将一并清除。`,
+        { modal: true },
+        '删除'
+      )
+      if (choice !== '删除') {
+        return
       }
       const result = await controller.deleteServer(server.id)
       if (result === 'missing') {

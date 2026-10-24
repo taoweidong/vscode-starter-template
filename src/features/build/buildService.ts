@@ -30,11 +30,18 @@ const GIT_CHECKOUT_TIMEOUT_MS = 60000
 const VSCE_PROBE_TIMEOUT_MS = 30000
 
 /**
- * 脏检查时忽略的路径前缀（T5.4 / P1-09）：
+ * 脏检查时忽略的路径前缀（T5.4 / P1-09；09 方案阶段 2 B2/B3 修订）：
  * 插件自身数据文件与本地产物目录默认不纳入「未提交修改」判定，
- * 避免用过一次 CRUD 后分支切换永远失败（自阻断）。
+ * 避免用过一次功能后分支切换永远失败（自阻断）。
+ * - B2：条目数据文件随领域删除；补上串口数据文件（修掉「用过串口 → 自阻断」缺陷）；
+ * - B3：草稿箱数据文件（右键登记即产生，同样必须忽略）。
+ * 匹配语义：精确路径相等或 `/` 结尾目录前缀（无 glob），改名阶段 5 须同步字面量。
  */
-export const DEFAULT_DIRTY_IGNORES = ['.vscode/crud-starter-items.json', '.crud-starter/']
+export const DEFAULT_DIRTY_IGNORES = [
+  '.vscode/serial-servers.json',
+  '.crud-starter/',
+  '.vscode/crud-starter.drafts.json',
+]
 
 /** 一条待执行命令（spawn 参数数组形态，杜绝 shell 拼接注入，P0-05）。 */
 export interface CommandSpec {

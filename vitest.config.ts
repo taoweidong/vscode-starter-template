@@ -24,10 +24,9 @@ export default defineConfig({
       // R-E-6：此前只有 4 个 glob——commands / providers / features / webview 下约 200 个
       // 用例完全不计入任何阈值，「整体 93%」名不副实。纳入「无需宿主即可测」的纯逻辑：
       // 协议收窄层、表单 schema 派生、字段适配、稳定序列化、命令注册工具、HTML 外壳。
+      // 09 方案阶段 2：src/models/** 与 src/domain/** 随条目领域删除，移出统计面。
       include: [
         'src/services/**',
-        'src/models/**',
-        'src/domain/**',
         'src/webview/protocol.ts',
         'src/webview/formSchema.ts',
         'src/webview/components/fieldAdapter.ts',
@@ -36,17 +35,13 @@ export default defineConfig({
         'src/commands/shared.ts',
       ],
       // 阈值为实测值减约 1pt 余量（2026-10 实测：整体 93.2L/88.85B/94.06F/93.36S；
-      // services 92.5L、models 97.3L、protocol 100）。
-      // 已知差距：domain 82.8L/74.3B——coerceBooleanField 为预留路径（生产字段表
-      // 暂无 boolean 字段，接入首个 boolean 字段后即可覆盖并提至 85+）。
+      // services 92.5L、protocol 100）。09 方案阶段 2 后统计面缩小，以当轮实测复核为准。
       thresholds: {
         lines: 92,
         functions: 93,
         statements: 92,
         branches: 87,
         'src/services/**': { lines: 90, functions: 90, statements: 90, branches: 85 },
-        'src/models/**': { lines: 95, functions: 98, statements: 95, branches: 93 },
-        'src/domain/**': { lines: 81, functions: 90, statements: 82, branches: 73 },
         'src/webview/protocol.ts': { lines: 100, functions: 100, statements: 100, branches: 100 },
       },
     },

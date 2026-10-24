@@ -40,11 +40,17 @@ describe('isHostMessage', () => {
   it.each([
     [
       'init 完整',
-      { type: 'init', page: 'itemForm', schema: [field], value: null, extra: { mode: 'create' } },
+      {
+        type: 'init',
+        page: 'serialConsole',
+        schema: [field],
+        value: null,
+        extra: { mode: 'create' },
+      },
     ],
     [
       'init 最小（无 extra，value 为 null）',
-      { type: 'init', page: 'itemForm', schema: [], value: null },
+      { type: 'init', page: 'serialConsole', schema: [], value: null },
     ],
     ['submitAck', { type: 'submitAck', ok: true }],
     ['error 带 field', { type: 'error', message: '名称不能为空', field: 'name' }],
@@ -61,120 +67,40 @@ describe('isHostMessage', () => {
     ['未知 type', { type: 'restore' }],
     ['init 缺 page', { type: 'init', schema: [field], value: null }],
     ['init.page 非字符串', { type: 'init', page: 1, schema: [field], value: null }],
-    ['init 缺 schema', { type: 'init', page: 'itemForm', value: null }],
-    ['init.schema 非数组', { type: 'init', page: 'itemForm', schema: field, value: null }],
-    ['init.schema 元素非对象', { type: 'init', page: 'itemForm', schema: ['name'], value: null }],
+    ['init 缺 schema', { type: 'init', page: 'serialConsole', value: null }],
+    ['init.schema 非数组', { type: 'init', page: 'serialConsole', schema: field, value: null }],
+    [
+      'init.schema 元素非对象',
+      { type: 'init', page: 'serialConsole', schema: ['name'], value: null },
+    ],
     [
       'init.schema 字段缺 key',
-      { type: 'init', page: 'itemForm', schema: [{ label: '名称', type: 'text' }], value: null },
+      {
+        type: 'init',
+        page: 'serialConsole',
+        schema: [{ label: '名称', type: 'text' }],
+        value: null,
+      },
     ],
     [
       'init.schema 字段 key 非字符串',
       {
         type: 'init',
-        page: 'itemForm',
+        page: 'serialConsole',
         schema: [{ key: 1, label: 'n', type: 'text' }],
         value: null,
       },
     ],
-    ['init 缺 value', { type: 'init', page: 'itemForm', schema: [] }],
-    ['init.extra 非对象', { type: 'init', page: 'itemForm', schema: [], value: null, extra: 'x' }],
+    ['init 缺 value', { type: 'init', page: 'serialConsole', schema: [] }],
+    [
+      'init.extra 非对象',
+      { type: 'init', page: 'serialConsole', schema: [], value: null, extra: 'x' },
+    ],
     ['submitAck 缺 ok', { type: 'submitAck' }],
     ['submitAck ok=false', { type: 'submitAck', ok: false }],
     ['error 缺 message', { type: 'error', field: 'name' }],
     ['error.message 非字符串', { type: 'error', message: 42 }],
     ['error.field 非字符串', { type: 'error', message: 'x', field: 3 }],
-  ])('拒绝非法消息：%s', (_name, sample) => {
-    expect(isHostMessage(sample)).toBe(false)
-  })
-})
-
-/* ================= M4-T4.4：批量导入向导消息守卫 ================= */
-
-const previewFile = { name: 'a.md', path: 'D:/docs/a.md', exists: false }
-
-describe('isWebviewMessage：导入向导消息', () => {
-  it.each([
-    ['browseFolder', { type: 'browseFolder' }],
-    ['requestPreview', { type: 'requestPreview', folder: 'D:/docs' }],
-    ['executeImport', { type: 'executeImport', files: [previewFile] }],
-    ['executeImport 空数组', { type: 'executeImport', files: [] }],
-    ['cancelImport', { type: 'cancelImport' }],
-  ])('接受合法消息：%s', (_name, sample) => {
-    expect(isWebviewMessage(sample)).toBe(true)
-  })
-
-  it.each([
-    ['requestPreview 缺 folder', { type: 'requestPreview' }],
-    ['requestPreview.folder 非字符串', { type: 'requestPreview', folder: 42 }],
-    ['executeImport 缺 files', { type: 'executeImport' }],
-    ['executeImport.files 非数组', { type: 'executeImport', files: previewFile }],
-    [
-      'executeImport.files 元素缺 exists',
-      { type: 'executeImport', files: [{ name: 'a', path: 'p' }] },
-    ],
-    [
-      'executeImport.files 元素 exists 非布尔',
-      { type: 'executeImport', files: [{ name: 'a', path: 'p', exists: 1 }] },
-    ],
-  ])('拒绝非法消息：%s', (_name, sample) => {
-    expect(isWebviewMessage(sample)).toBe(false)
-  })
-})
-
-describe('isHostMessage：导入向导消息', () => {
-  it.each([
-    ['selectFolder 有值', { type: 'selectFolder', folder: 'D:/docs' }],
-    ['selectFolder 取消（null）', { type: 'selectFolder', folder: null }],
-    ['importPreview', { type: 'importPreview', files: [previewFile] }],
-    ['importProgress', { type: 'importProgress', done: 3, total: 10 }],
-    [
-      'importDone 最小',
-      { type: 'importDone', result: { created: 1, skipped: 0, failed: 0, cancelled: false } },
-    ],
-    [
-      'importDone 带失败明细',
-      {
-        type: 'importDone',
-        result: {
-          created: 1,
-          skipped: 0,
-          failed: 1,
-          cancelled: true,
-          failures: [{ name: 'b.md', reason: '写入失败' }],
-        },
-      },
-    ],
-  ])('接受合法消息：%s', (_name, sample) => {
-    expect(isHostMessage(sample)).toBe(true)
-  })
-
-  it.each([
-    ['selectFolder 缺 folder', { type: 'selectFolder' }],
-    ['selectFolder.folder 数字', { type: 'selectFolder', folder: 1 }],
-    ['importPreview 缺 files', { type: 'importPreview' }],
-    ['importPreview.files 元素非法', { type: 'importPreview', files: ['a.md'] }],
-    ['importProgress 缺 total', { type: 'importProgress', done: 1 }],
-    ['importProgress.done 非数字', { type: 'importProgress', done: '1', total: 2 }],
-    ['importDone 缺 result', { type: 'importDone' }],
-    [
-      'importDone.result.cancelled 非布尔',
-      { type: 'importDone', result: { created: 0, skipped: 0, failed: 0, cancelled: 'yes' } },
-    ],
-    [
-      'importDone.failures 非数组',
-      {
-        type: 'importDone',
-        result: { created: 0, skipped: 0, failed: 0, cancelled: false, failures: 'x' },
-      },
-    ],
-    [
-      'importDone.failures 元素缺 reason',
-      {
-        type: 'importDone',
-        result: { created: 0, skipped: 0, failed: 0, cancelled: false, failures: [{ name: 'a' }] },
-      },
-    ],
   ])('拒绝非法消息：%s', (_name, sample) => {
     expect(isHostMessage(sample)).toBe(false)
   })

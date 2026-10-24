@@ -44,24 +44,12 @@
     "views": {
       "crudStarter": [
         {
-          "id": "crudStarter.itemsView",
-          "name": "条目列表"
-        },
-        {
           "id": "crudStarter.envView",
           "name": "环境信息"
         },
         {
           "id": "crudStarter.initView",
           "name": "环境初始化"
-        },
-        {
-          "id": "crudStarter.featureConfigView",
-          "name": "特性配置"
-        },
-        {
-          "id": "crudStarter.staticConfigView",
-          "name": "静态配置"
         },
         {
           "id": "crudStarter.buildView",
@@ -74,131 +62,6 @@
       ]
     },
     "commands": [
-      {
-        "command": "crudStarter.newItem",
-        "title": "新增条目",
-        "category": "CRUD Starter",
-        "icon": "$(add)"
-      },
-      {
-        "command": "crudStarter.editItem",
-        "title": "编辑条目",
-        "category": "CRUD Starter",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "crudStarter.duplicateItem",
-        "title": "克隆条目",
-        "category": "CRUD Starter",
-        "icon": "$(copy)"
-      },
-      {
-        "command": "crudStarter.deleteItem",
-        "title": "删除条目",
-        "category": "CRUD Starter",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "crudStarter.filterItems",
-        "title": "过滤条目",
-        "category": "CRUD Starter",
-        "icon": "$(search)"
-      },
-      {
-        "command": "crudStarter.refresh",
-        "title": "刷新列表",
-        "category": "CRUD Starter",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "crudStarter.openDataFile",
-        "title": "打开数据文件",
-        "category": "CRUD Starter"
-      },
-      {
-        "command": "crudStarter.newItemFromSelection",
-        "title": "从选中文本新增条目",
-        "category": "CRUD Starter",
-        "icon": "$(symbol-string)"
-      },
-      {
-        "command": "crudStarter.newItemFromFile",
-        "title": "将文件添加为条目",
-        "category": "CRUD Starter",
-        "icon": "$(new-file)"
-      },
-      {
-        "command": "crudStarter.newItemFromFilePreview",
-        "title": "登记文件并摘录内容",
-        "category": "CRUD Starter",
-        "icon": "$(markdown)"
-      },
-      {
-        "command": "crudStarter.newItemsFromFolder",
-        "title": "将文件夹内容登记为条目",
-        "category": "CRUD Starter",
-        "icon": "$(folder-library)"
-      },
-      {
-        "command": "crudStarter.quickAddFromSelection",
-        "title": "从选中文本快速新增条目",
-        "category": "CRUD Starter",
-        "icon": "$(zap)"
-      },
-      {
-        "command": "crudStarter.appendSelectionToItem",
-        "title": "将选中内容追加到条目",
-        "category": "CRUD Starter",
-        "icon": "$(add)"
-      },
-      {
-        "command": "crudStarter.addCurrentFileToItems",
-        "title": "登记当前文件为条目",
-        "category": "CRUD Starter",
-        "icon": "$(new-file)"
-      },
-      {
-        "command": "crudStarter.setPriorityHigh",
-        "title": "优先级：高",
-        "category": "CRUD Starter",
-        "icon": "$(arrow-up)"
-      },
-      {
-        "command": "crudStarter.setPriorityMedium",
-        "title": "优先级：中",
-        "category": "CRUD Starter",
-        "icon": "$(dash)"
-      },
-      {
-        "command": "crudStarter.setPriorityLow",
-        "title": "优先级：低",
-        "category": "CRUD Starter",
-        "icon": "$(arrow-down)"
-      },
-      {
-        "command": "crudStarter.copyName",
-        "title": "复制名称",
-        "category": "CRUD Starter",
-        "icon": "$(copy)"
-      },
-      {
-        "command": "crudStarter.copyMarkdown",
-        "title": "复制为 Markdown",
-        "category": "CRUD Starter",
-        "icon": "$(markdown)"
-      },
-      {
-        "command": "crudStarter.copyJson",
-        "title": "复制为 JSON",
-        "category": "CRUD Starter",
-        "icon": "$(bracket)"
-      },
-      {
-        "command": "crudStarter.moreActions",
-        "title": "更多操作…",
-        "category": "CRUD Starter",
-        "icon": "$(ellipsis)"
-      },
       {
         "command": "crudStarter.refreshEnvironment",
         "title": "刷新环境信息",
@@ -224,33 +87,10 @@
         "icon": "$(play)"
       },
       {
-        "command": "crudStarter.openFeatureConfigPage",
-        "title": "打开特性配置页面",
-        "category": "CRUD Starter",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "crudStarter.toggleFeature",
-        "title": "切换特性开关",
-        "category": "CRUD Starter"
-      },
-      {
-        "command": "crudStarter.openStaticConfigFile",
-        "title": "打开静态配置文件",
-        "category": "CRUD Starter",
-        "icon": "$(go-to-file)"
-      },
-      {
         "command": "crudStarter.buildBranch",
         "title": "选择分支编译出包",
         "category": "CRUD Starter",
         "icon": "$(package)"
-      },
-      {
-        "command": "crudStarter.openImportWizard",
-        "title": "批量导入条目",
-        "category": "CRUD Starter",
-        "icon": "$(desktop-download)"
       },
       {
         "command": "crudStarter.openGallery",
@@ -291,40 +131,34 @@
         "title": "刷新串口服务器列表",
         "category": "CRUD Starter",
         "icon": "$(refresh)"
-      }
-    ],
-    "submenus": [
-      {
-        "id": "crudStarter.priorityMenu",
-        "label": "设置优先级"
       },
       {
-        "id": "crudStarter.copyMenu",
-        "label": "复制…"
+        "command": "crudStarter.draftSelection",
+        "title": "登记选中文本到草稿箱",
+        "category": "CRUD Starter",
+        "icon": "$(symbol-string)"
+      },
+      {
+        "command": "crudStarter.appendDraftSelection",
+        "title": "追加选中文本到最近草稿",
+        "category": "CRUD Starter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "crudStarter.draftFile",
+        "title": "登记文件到草稿箱",
+        "category": "CRUD Starter",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "crudStarter.draftFolder",
+        "title": "登记文件夹内容到草稿箱",
+        "category": "CRUD Starter",
+        "icon": "$(folder-library)"
       }
     ],
     "menus": {
       "view/title": [
-        {
-          "command": "crudStarter.newItem",
-          "when": "view == crudStarter.itemsView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "crudStarter.filterItems",
-          "when": "view == crudStarter.itemsView",
-          "group": "navigation@2"
-        },
-        {
-          "command": "crudStarter.refresh",
-          "when": "view == crudStarter.itemsView",
-          "group": "navigation@3"
-        },
-        {
-          "command": "crudStarter.openImportWizard",
-          "when": "view == crudStarter.itemsView",
-          "group": "navigation@4"
-        },
         {
           "command": "crudStarter.refreshEnvironment",
           "when": "view == crudStarter.envView",
@@ -338,16 +172,6 @@
         {
           "command": "crudStarter.runAllInit",
           "when": "view == crudStarter.initView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "crudStarter.openFeatureConfigPage",
-          "when": "view == crudStarter.featureConfigView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "crudStarter.openStaticConfigFile",
-          "when": "view == crudStarter.staticConfigView",
           "group": "navigation@1"
         },
         {
@@ -372,11 +196,6 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "crudStarter.editItem",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "inline@1"
-        },
         {
           "command": "crudStarter.runInitStep",
           "when": "view == crudStarter.initView && viewItem == initStep",
@@ -416,168 +235,67 @@
           "command": "crudStarter.deleteSerialServer",
           "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
           "group": "1_serial@3"
-        },
-        {
-          "command": "crudStarter.editItem",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "1_crud@1"
-        },
-        {
-          "command": "crudStarter.duplicateItem",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "1_crud@2"
-        },
-        {
-          "command": "crudStarter.deleteItem",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "1_crud@3"
-        },
-        {
-          "submenu": "crudStarter.priorityMenu",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "2_crud@1"
-        },
-        {
-          "submenu": "crudStarter.copyMenu",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "2_crud@2"
-        },
-        {
-          "command": "crudStarter.moreActions",
-          "when": "view == crudStarter.itemsView && viewItem == crudItem",
-          "group": "3_crud@1"
-        }
-      ],
-      "crudStarter.priorityMenu": [
-        {
-          "command": "crudStarter.setPriorityHigh",
-          "group": "1@1"
-        },
-        {
-          "command": "crudStarter.setPriorityMedium",
-          "group": "1@2"
-        },
-        {
-          "command": "crudStarter.setPriorityLow",
-          "group": "1@3"
-        }
-      ],
-      "crudStarter.copyMenu": [
-        {
-          "command": "crudStarter.copyName",
-          "group": "1@1"
-        },
-        {
-          "command": "crudStarter.copyMarkdown",
-          "group": "1@2"
-        },
-        {
-          "command": "crudStarter.copyJson",
-          "group": "1@3"
         }
       ],
       "editor/context": [
         {
-          "command": "crudStarter.newItemFromSelection",
+          "command": "crudStarter.draftSelection",
           "when": "editorTextFocus && editorHasSelection",
-          "group": "9_crudstarter@1"
+          "group": "9_starter@1"
         },
         {
-          "command": "crudStarter.quickAddFromSelection",
+          "command": "crudStarter.appendDraftSelection",
           "when": "editorTextFocus && editorHasSelection",
-          "group": "9_crudstarter@2"
+          "group": "9_starter@2"
         },
         {
-          "command": "crudStarter.appendSelectionToItem",
-          "when": "editorTextFocus && editorHasSelection",
-          "group": "9_crudstarter@3"
-        },
-        {
-          "command": "crudStarter.addCurrentFileToItems",
+          "command": "crudStarter.draftFile",
           "when": "editorIsOpen && !editorHasSelection",
-          "group": "9_crudstarter@4"
+          "group": "9_starter@3"
+        },
+        {
+          "command": "crudStarter.draftFile",
+          "when": "editorIsOpen && editorHasSelection",
+          "group": "9_starter@4"
         }
       ],
       "explorer/context": [
         {
-          "command": "crudStarter.newItemFromFile",
-          "when": "!explorerResourceIsFolder",
-          "group": "9_crudstarter@1"
+          "command": "crudStarter.draftFile",
+          "when": "!explorerResourceIsFolder && !listMultiSelection",
+          "group": "9_starter@1"
         },
         {
-          "command": "crudStarter.newItemFromFilePreview",
-          "when": "!explorerResourceIsFolder",
-          "group": "9_crudstarter@2"
+          "command": "crudStarter.draftFile",
+          "when": "!explorerResourceIsFolder && listMultiSelection",
+          "group": "9_starter@2"
         },
         {
-          "command": "crudStarter.newItemsFromFolder",
+          "command": "crudStarter.draftFolder",
           "when": "explorerResourceIsFolder",
-          "group": "9_crudstarter@3"
+          "group": "9_starter@3"
         }
       ],
       "editor/title": [
         {
-          "command": "crudStarter.newItemFromFile",
+          "command": "crudStarter.draftFile",
           "when": "editorIsOpen",
           "group": "navigation@5"
         }
       ]
     },
-    "keybindings": [
-      {
-        "command": "crudStarter.newItem",
-        "key": "alt+n",
-        "when": "!inputFocus && !terminalFocus"
-      },
-      {
-        "command": "crudStarter.newItemFromSelection",
-        "key": "alt+s",
-        "when": "editorTextFocus && editorHasSelection"
-      }
-    ],
     "configuration": {
       "title": "CRUD Starter",
       "properties": {
-        "crudStarter.storagePath": {
-          "type": "string",
-          "default": ".vscode/crud-starter-items.json",
-          "scope": "machine",
-          "description": "数据存储的 JSON 文件路径（相对当前工作区根目录，使用 / 分隔，必须位于工作区内且以 .json 结尾）。未打开工作区时数据保存在 VSCode 全局存储中。"
-        },
         "crudStarter.runStartupTasks": {
           "type": "boolean",
           "default": true,
           "description": "插件激活时自动执行启动任务（环境检测脚本）。关闭后仍可通过「环境信息」视图的刷新按钮手动执行。"
         },
-        "crudStarter.features.confirmDelete": {
+        "crudStarter.serialConsoleEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "特性开关：删除条目时弹出模态确认框，防止误删。"
-        },
-        "crudStarter.features.successNotifications": {
-          "type": "boolean",
-          "default": true,
-          "description": "特性开关：新增 / 更新 / 删除 / 克隆成功后弹出提示。"
-        },
-        "crudStarter.features.showPriorityIcons": {
-          "type": "boolean",
-          "default": true,
-          "description": "特性开关：条目列表中按优先级显示 ↑ / — / ↓ 图标。"
-        },
-        "crudStarter.features.showViewBadges": {
-          "type": "boolean",
-          "default": true,
-          "description": "特性开关：过滤时在视图标题栏显示匹配数量徽标。"
-        },
-        "crudStarter.features.autoRefreshOnExternalChange": {
-          "type": "boolean",
-          "default": true,
-          "description": "特性开关：数据文件 / 静态配置被外部修改时自动重新加载。"
-        },
-        "crudStarter.features.serialConsole": {
-          "type": "boolean",
-          "default": true,
-          "description": "特性开关：启用串口服务器管理与命令控制台。"
+          "description": "启用串口服务器管理与命令控制台（服务器录入 / 命令下发 / 实时输出）。"
         }
       }
     }

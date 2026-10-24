@@ -51,9 +51,6 @@ function buildCsp(nonce) {
 
 /** 页面 id → Vite 入口源路径（src/webview/pages.ts 的镜像，用于 manifest 键匹配）。 */
 const PAGE_ENTRY_PATHS = {
-  itemForm: 'src/webview/apps/itemForm/main.ts',
-  featureConfig: 'src/webview/apps/featureConfig/main.ts',
-  importWizard: 'src/webview/apps/importWizard/main.ts',
   gallery: 'src/webview/apps/gallery/main.ts',
   serialConsole: 'src/webview/apps/serialConsole/main.ts',
 }

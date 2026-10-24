@@ -1,21 +1,20 @@
-import { ITEM_FIELD_DEFS } from '../domain/itemSchema'
 import type { FieldDef } from './protocol'
 
 /**
- * 表单字段 Schema：由领域 Schema（src/domain/itemSchema.ts 的 ITEM_FIELD_DEFS）
- * **派生**而来，本文件不再手写字段清单。
+ * 表单字段 Schema 派生层。
  *
- * 「给条目加字段」= 在 ITEM_FIELD_DEFS 加一行定义（可选地同步 Item / ItemDraft
- * 模型类型以获得更强的类型提示），表单渲染、取值、回填、校验全部自动跟随
- * （详见 README「如何扩展」）。同一套框架也被「特性配置」页面复用（boolean
- * 开关字段，见 src/features/featureConfig）。
+ * 各领域（串口服务器等）在自己的模块里声明 `SchemaFieldDef[]` 字段表，
+ * 经 `deriveFormSchema` 派生成表单字段；「给领域加字段」= 在其字段表加一行，
+ * 表单渲染、取值、回填、校验全部自动跟随（详见 README「如何扩展」）。
+ * （09 方案阶段 2：条目领域的 ITEM_FIELD_DEFS / FORM_SCHEMA / UI_FIELD_EXTRAS
+ * 已随条目领域删除；`deriveFormSchema` 是领域无关参数化派生，串口侧在用。）
  */
 export type FormFieldType = 'text' | 'textarea' | 'select' | 'tags' | 'boolean'
 
 /**
- * 通用领域字段定义（与 domain/itemSchema.ts 的 ItemFieldDef 结构一致）。
- * 独立声明而非复用 ItemFieldDef：串口服务器等领域定义自己的字段表时，
- * 不必引入条目领域的类型面。
+ * 通用领域字段定义。
+ * 独立声明、不绑定任何具体领域：串口服务器等领域定义自己的字段表时，
+ * 不必引入其他领域的类型面。
  */
 export interface SchemaFieldDef {
   /** 对应领域 Draft 的字段名 */
@@ -36,7 +35,7 @@ export interface SchemaFieldDef {
 }
 
 export interface FormField {
-  /** 对应 ItemDraft 的字段名 */
+  /** 对应领域 Draft 的字段名 */
   key: string
   label: string
   type: FormFieldType
@@ -57,20 +56,10 @@ export interface FormField {
 }
 
 /**
- * UI 层附加属性（按字段 key 声明式叠加）：datalist 这类「页面渲染行为」属于
- * Webview 层关切，不进领域定义（领域只描述数据与校验）。
- * 当前唯一条目：分类输入建议（datalist 元素由条目表单页持有，选项来自宿主
- * 下发的已有分类列表）。值为标记，页面据此决定是否渲染 datalist 并派生唯一 DOM id。
- */
-const UI_FIELD_EXTRAS: Record<string, Partial<FormField>> = {
-  category: { datalist: 'category-list' },
-}
-
-/**
  * 领域字段定义 → 表单字段（SchemaFieldDef 与 FormField 结构同构，逐属性显式拷贝，
  * 避免把具体领域类型直接引入 Webview 类型程序的 import 面）。
- * 参数为通用结构类型：条目（ITEM_FIELD_DEFS）、串口服务器（SERVER_FIELD_DEFS）
- * 等任何领域的字段表都能派生，加字段只需扩展各自的领域定义。
+ * 参数为通用结构类型：串口服务器（SERVER_FIELD_DEFS）等任何领域的字段表都能派生，
+ * 加字段只需扩展各自的领域定义。
  */
 export function deriveFormSchema(defs: readonly SchemaFieldDef[]): FormField[] {
   return defs.map((def) => ({
@@ -82,12 +71,8 @@ export function deriveFormSchema(defs: readonly SchemaFieldDef[]): FormField[] {
     hint: def.hint,
     defaultValue: def.defaultValue,
     options: def.options?.map((option) => ({ ...option })),
-    ...UI_FIELD_EXTRAS[def.key],
   }))
 }
-
-/** 条目表单 Schema：领域 Schema 的表单视图（单一来源见 src/domain/itemSchema.ts）。 */
-export const FORM_SCHEMA: FormField[] = deriveFormSchema(ITEM_FIELD_DEFS)
 
 /**
  * FormField[] → 协议 FieldDef[]（宿主组装 init 载荷用）。

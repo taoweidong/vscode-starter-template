@@ -7,8 +7,7 @@
  *
  * 新增页面 = 本表一项 + apps/<pageId>/ 目录（FR-16-AC2）。
  */
-export type WebviewPageId =
-  'itemForm' | 'featureConfig' | 'importWizard' | 'gallery' | 'serialConsole'
+export type WebviewPageId = 'gallery' | 'serialConsole'
 
 export interface WebviewPageDef {
   /** 页面唯一 id，同时是 Vite 入口名与宿主 viewType 后缀 */
@@ -26,9 +25,6 @@ export interface WebviewPageDef {
 }
 
 export const WEBVIEW_PAGES: readonly WebviewPageDef[] = [
-  { id: 'itemForm', title: '条目表单', entry: 'src/webview/apps/itemForm/main.ts' },
-  { id: 'featureConfig', title: '特性配置', entry: 'src/webview/apps/featureConfig/main.ts' },
-  { id: 'importWizard', title: '批量导入', entry: 'src/webview/apps/importWizard/main.ts' },
   { id: 'gallery', title: '组件画廊（开发）', entry: 'src/webview/apps/gallery/main.ts' },
   { id: 'serialConsole', title: '串口控制台', entry: 'src/webview/apps/serialConsole/main.ts' },
 ]

@@ -113,8 +113,8 @@ describe('registerSerialConsoleCommands', () => {
     expect(panelSpy).toHaveBeenLastCalledWith(expect.anything(), 'srv-9')
   })
 
-  it('特性开关关闭时给出提示且不打开面板', () => {
-    __setConfig(CONFIG.section, 'features.serialConsole', false)
+  it('serialConsoleEnabled 关闭时给出提示且不打开面板（S1）', () => {
+    __setConfig(CONFIG.section, CONFIG.serialConsoleEnabled, false)
     const panelSpy = vi
       .spyOn(SerialConsolePanel, 'createOrShow')
       .mockImplementation(() => undefined)
@@ -134,8 +134,8 @@ describe('registerSerialConsoleCommands', () => {
     expect(refreshSpy).toHaveBeenCalled()
   })
 
-  it('deleteSerialServer：关闭确认时直接删除并清理', async () => {
-    __setConfig(CONFIG.section, 'features.confirmDelete', false)
+  it('deleteSerialServer：模态确认后删除并清理（S3：一律确认）', async () => {
+    __stubs.dialogQueue.push('删除')
     const deleteSpy = vi.spyOn(controller, 'deleteServer').mockResolvedValue('deleted' as never)
     const { registered, register } = makeRegistrar()
     registerSerialConsoleCommands(register, { controller, context: makeContext() })
@@ -143,8 +143,7 @@ describe('registerSerialConsoleCommands', () => {
     expect(deleteSpy).toHaveBeenCalledWith('srv-7')
   })
 
-  it('deleteSerialServer：开启确认后取消则不删除', async () => {
-    __setConfig(CONFIG.section, 'features.confirmDelete', true)
+  it('deleteSerialServer：模态取消则不删除', async () => {
     // 桩的 showWarningMessage 返回 undefined（等于用户取消模态）
     const deleteSpy = vi.spyOn(controller, 'deleteServer').mockResolvedValue('deleted' as never)
     const { registered, register } = makeRegistrar()

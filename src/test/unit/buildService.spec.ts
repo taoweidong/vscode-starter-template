@@ -183,7 +183,7 @@ describe('BuildService 分支切换（check-ref-format / 脏检查 / 确认 / �
   it('脏检查忽略插件自身数据文件（P1-09）：只有自身文件变更时允许切换', async () => {
     const fake = new FakeRunner()
     programGit(fake, {
-      porcelain: ' M .vscode/crud-starter-items.json\n?? .crud-starter/\n',
+      porcelain: ' M .vscode/serial-servers.json\n?? .crud-starter/\n',
     })
     fake.onArgs(NPM, npmArgs('run', 'package'), 'ok')
     fake.onArgs(NPX, npxArgs('--no-install', 'vsce', '--version'), new Error('no vsce'))
@@ -196,7 +196,7 @@ describe('BuildService 分支切换（check-ref-format / 脏检查 / 确认 / �
     expect(checkouts[0].args).toEqual(['checkout', 'feat/x']) // 参数数组（无 shell 拼接）
   })
 
-  it('R-C-4 脏检查忽略前缀动态跟随 storagePath：自定义路径用户不被自阻断', async () => {
+  it('脏检查忽略前缀支持注入自定义路径（getDirtyIgnorePrefixes 机制保持，B1）', async () => {
     const fake = new FakeRunner()
     programGit(fake, {
       porcelain: ' M data/items.json\n',
@@ -204,7 +204,7 @@ describe('BuildService 分支切换（check-ref-format / 脏检查 / 确认 / �
     fake.onArgs(NPM, npmArgs('run', 'package'), 'ok')
     fake.onArgs(NPX, npxArgs('--no-install', 'vsce', '--version'), new Error('no vsce'))
     __stubs.dialogQueue.push('切换并编译')
-    // 模拟 crudStarter.storagePath 配置为 data/items.json 的用户
+    // 模拟经 getDirtyIgnorePrefixes 注入自定义忽略路径（如其他工作区数据文件）
     const svc = makeServiceWithOptions(fake, {
       getDirtyIgnorePrefixes: () => [...DEFAULT_DIRTY_IGNORES, 'data/items.json'],
     })
@@ -374,7 +374,7 @@ describe('BuildService 编译与出包', () => {
 describe('filterDirtyLines', () => {
   it('默认忽略自身数据文件与产物目录，其余保留', () => {
     const porcelain = [
-      ' M .vscode/crud-starter-items.json',
+      ' M .vscode/serial-servers.json',
       '?? .crud-starter/',
       ' M src/index.ts',
       '?? other.json',
@@ -384,11 +384,11 @@ describe('filterDirtyLines', () => {
 
   it('空输入返回空数组；带引号路径同样过滤', () => {
     expect(filterDirtyLines('')).toEqual([])
-    expect(filterDirtyLines(' M ".vscode/crud-starter-items.json"')).toEqual([])
+    expect(filterDirtyLines(' M ".vscode/serial-servers.json"')).toEqual([])
   })
 
   it('重命名行（old -> new）：目标或来源命中忽略前缀则忽略', () => {
-    expect(filterDirtyLines('R  .vscode/crud-starter-items.json -> data.json')).toEqual([])
+    expect(filterDirtyLines('R  .vscode/serial-servers.json -> data.json')).toEqual([])
     expect(filterDirtyLines('R  old.json -> .crud-starter/environment.json')).toEqual([])
     expect(filterDirtyLines('R  a.ts -> b.ts')).toEqual(['R  a.ts -> b.ts'])
   })
@@ -397,7 +397,8 @@ describe('filterDirtyLines', () => {
     expect(filterDirtyLines(' M custom/data.json\n M x.ts', ['custom/data.json'])).toEqual([
       'M x.ts',
     ])
-    expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/crud-starter-items.json')
+    expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/serial-servers.json')
+    expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/crud-starter.drafts.json')
     expect(DEFAULT_DIRTY_IGNORES).toContain('.crud-starter/')
   })
 })

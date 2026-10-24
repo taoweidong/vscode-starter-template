@@ -7,7 +7,7 @@ import type { SerialServer } from './models'
 import { normalizeSerialServerList } from './serverGuard'
 
 /**
- * 串口服务器数据源抽象（镜像 services/stores/itemStore.ts 的 IItemStore 契约）：
+ * 串口服务器数据源抽象（双实现：工作区文件 + Memento）：
  * load 空数据不抛错；save 原子（要么完整写入，要么失败且原文件不变）。
  */
 export interface IServerStore {
@@ -145,7 +145,7 @@ export class MementoServerStore implements IServerStore {
 /**
  * 装配：有工作区 → JsonServerStore（.vscode/serial-servers.json）；
  * 无工作区 → MementoServerStore（globalState）。
- * 简化说明：不做 storagePath 配置与外部文件 watcher（条目数据有），
+ * 简化说明：不做外部文件 watcher，
  * 服务器列表变更由面板 / 命令显式刷新树视图。
  */
 export function createServerStore(

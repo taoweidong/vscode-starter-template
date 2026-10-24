@@ -9,7 +9,7 @@ import {
 } from './models'
 
 /**
- * 串口服务器领域 Schema（镜像 src/domain/itemSchema.ts 的模式）：
+ * 串口服务器领域 Schema（参数化字段表，经 deriveFormSchema 派生表单）：
  * SERVER_FIELD_DEFS 是表单字段的单一来源，校验 / 清洗由 coerceServerDraft 按表处理。
  *
  * 密码字段仅用于表单渲染与传输（经协议 serialServerSave.password 单独携带 →
@@ -201,7 +201,7 @@ export function coerceServerDraft(raw: Record<string, unknown>): CoerceServerDra
   return { ok: true, draft }
 }
 
-/** 单个文本字段清洗：trim / 必填 / 超长（结果形态与 domain/itemSchema 的分字段清洗一致）。 */
+/** 单个文本字段清洗：trim / 必填 / 超长。 */
 function coerceText(
   label: string,
   raw: unknown,

@@ -3,7 +3,7 @@
  *
  * - Webview 侧组件与页面只使用本映射的语义名（iconClass 返回完整 codicon 类），
  *   禁止在组件内手写 codicon-xxx 字面量或引入其他图标库；
- * - 概念命名对齐宿主侧 src/ui/icons.ts（同一概念全插件同图标，修复 E8）。
+ * - 语义名 → codicon 类名的单一来源（同一概念全插件同图标，修复 E8）。
  */
 export const ICON_NAMES = {
   add: 'add',

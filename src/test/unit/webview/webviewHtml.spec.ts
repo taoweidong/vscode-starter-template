@@ -58,10 +58,12 @@ describe('renderWebviewHtml', () => {
   it('动态文本（title / URI）HTML 转义，防注入', () => {
     const html = renderWebviewHtml({
       ...baseOptions,
-      title: '条目<script>alert(1)</script>',
+      title: `条目<script>alert(1)</script>&"x'y",`,
       scriptUri: 'vscode-webview-view/a"><script>',
     })
-    expect(html).toContain('<title>条目&lt;script&gt;alert(1)&lt;/script&gt;</title>')
+    expect(html).toContain(
+      '<title>条目&lt;script&gt;alert(1)&lt;/script&gt;&amp;&quot;x&#39;y&quot;,</title>'
+    )
     expect(html).not.toContain('<script>alert(1)')
     expect(html).toContain('src="vscode-webview-view/a&quot;&gt;&lt;script&gt;"')
   })

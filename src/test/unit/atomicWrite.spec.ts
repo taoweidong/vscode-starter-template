@@ -40,6 +40,18 @@ describe('writeJsonAtomic', () => {
     expect(nodeFs.existsSync(nested.fsPath)).toBe(true)
   })
 
+  it('读回校验失败（写入内容与预期不一致）：抛错、原文件不变、临时文件清理', async () => {
+    nodeFs.writeFileSync(fileUri.fsPath, 'original', 'utf8')
+    const realWrite = vscode.workspace.fs.writeFile.bind(vscode.workspace.fs)
+    vi.spyOn(vscode.workspace.fs, 'writeFile').mockImplementation(async (uri, _content) => {
+      // 模拟磁盘满 / 并发改写：落盘内容与预期不一致
+      await realWrite(uri, Buffer.from('corrupted', 'utf8'))
+    })
+    await expect(writeJsonAtomic(fileUri, { a: 1 })).rejects.toThrow('读回校验失败')
+    expect(nodeFs.readFileSync(fileUri.fsPath, 'utf8')).toBe('original')
+    expect(nodeFs.readdirSync(dir).filter((name) => name.includes('.tmp-'))).toEqual([])
+  })
+
   it('写入失败：抛错、原文件保持不变、临时文件被清理', async () => {
     nodeFs.writeFileSync(fileUri.fsPath, 'original', 'utf8')
     vi.spyOn(vscode.workspace.fs, 'writeFile').mockRejectedValue(new Error('disk full'))

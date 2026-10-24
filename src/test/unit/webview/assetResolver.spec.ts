@@ -85,9 +85,9 @@ describe('resolveEntryAssets', () => {
 
   it('按入口源路径键解析（Vite 常见格式：键 = src 相对路径），并递归收集共享 chunk 的 css', () => {
     const manifest = {
-      'src/webview/apps/itemForm/main.ts': {
-        file: 'assets/itemForm-2.js',
-        css: ['assets/itemForm-2.css'],
+      'src/webview/apps/serialConsole/main.ts': {
+        file: 'assets/serialConsole-2.js',
+        css: ['assets/serialConsole-2.css'],
         imports: ['__shared'],
       },
       __shared: {
@@ -95,11 +95,11 @@ describe('resolveEntryAssets', () => {
         css: ['assets/tokens-4.css', 'assets/codicon-5.css'],
       },
     }
-    const assets = resolveEntryAssets(webview, manifest, 'itemForm', webviewRoot)
-    expect(assets.scriptUri.fsPath).toContain('itemForm-2.js')
+    const assets = resolveEntryAssets(webview, manifest, 'serialConsole', webviewRoot)
+    expect(assets.scriptUri.fsPath).toContain('serialConsole-2.js')
     expect(assets.styleUris.map((uri) => uri.fsPath)).toEqual(
       expect.arrayContaining(
-        ['itemForm-2.css', 'tokens-4.css', 'codicon-5.css'].map((f) =>
+        ['serialConsole-2.css', 'tokens-4.css', 'codicon-5.css'].map((f) =>
           join(webviewRoot.fsPath, 'assets', f)
         )
       )

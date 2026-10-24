@@ -9,7 +9,7 @@ import {
 } from './models'
 
 /**
- * 加载守卫（镜像 models/itemGuard.normalizeItemList 的契约）：
+ * 加载守卫（逐字段窄化，非法样例拒绝）：
  * - 坏条目（非对象 / 缺 id / name 或 serialPath 非字符串）跳过并经 onWarning 上报；
  * - 缺失或非法的串口参数补 DEFAULT_SERIAL_PARAMS 默认值；
  * - 重复 id 保留首个；
