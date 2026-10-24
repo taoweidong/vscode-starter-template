@@ -22,6 +22,9 @@
  *   6. 禁止 .vue 模板静态 `style="..."` 属性（07 R-E-12 / 07 §2 残留风险 1）：
  *      宿主 CSP `style-src` 无 `'unsafe-inline'`，静态 style 属性会被静默拦截；
  *      `:style` / `v-bind:style` 绑定编译为 CSSOM（setProperty），不受影响、不误伤。
+ *   7. dist 产物 CSS 禁止站点根绝对资源引用 `url(/…)`（09 方案 §4.2 F2）：
+ *      webview 无 <base>、资源根是 dist/webview，`url(/assets/…)` 必 404
+ *      （正是 v0.7.0 全图标不显示的病根）；红线锚在构建产物上防回归。
  * 违规统一收集「文件:行」后一次性 assert 抛出（fail-fast 由门禁步骤捕获）。
  */
 import assert from 'node:assert'
@@ -67,6 +70,8 @@ const HOST_DIR = 'host'
 const DIST_WEBVIEW_DIR = ['dist', 'webview']
 /** dist 产物中禁用的 CSP 危险形态（07 R-E-5 / 04 §9.5）。 */
 const DIST_FORBIDDEN_RE = /\beval\s*\(|new Function|unsafe-eval|unsafe-inline/
+/** dist 产物 CSS 中禁用的站点根绝对资源引用（09 方案 §4.2 F2）。 */
+const DIST_ROOT_ABSOLUTE_URL_RE = /url\(\s*['"]?\//
 /** 模板静态 style 属性（07 R-E-12；`:style` / `v-bind:style` 前缀字符排除，不误伤 CSSOM 绑定）。 */
 const STATIC_STYLE_ATTR_RE = /(?<![:\w-])style\s*=\s*['"]/
 
@@ -185,13 +190,24 @@ function checkDistCsp(root: string): void {
             `${toPosix(path.relative(root, abs))} 含禁用 CSP 形态（eval( / new Function / unsafe-eval / unsafe-inline，04 §9.5）`
           )
         }
+        // 规则 7（09 §4.2 F2）：站点根绝对 url(/…) 在 webview 下必 404
+        if (entry.name.endsWith('.css')) {
+          const hitLine = text
+            .split(/\r?\n/)
+            .findIndex((line) => DIST_ROOT_ABSOLUTE_URL_RE.test(line))
+          if (hitLine >= 0) {
+            violations.push(
+              `${toPosix(path.relative(root, abs))}:${hitLine + 1} 含站点根绝对资源引用 url(/…)（webview 下 404，09 §4.2 F2；请在 vite.config.ts 设置 base: './'）`
+            )
+          }
+        }
       }
     }
   }
   walk(distDir)
   assert(
     violations.length === 0,
-    `Webview 构建产物 CSP 扫描未通过（共 ${violations.length} 处）：\n${violations
+    `Webview 构建产物扫描未通过（共 ${violations.length} 处）：\n${violations
       .map((v) => `  - ${v}`)
       .join('\n')}`
   )

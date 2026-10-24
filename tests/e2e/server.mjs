@@ -6,12 +6,17 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * E2E 静态服务器（零依赖，Node http）：
- * - 以 dist/webview 为根，服务 /assets/** 与 /.vite/manifest.json；
+ * - 以 dist/webview 为根，静态产物**只**经 /webview/** 前缀路由（09 方案 §4.2 F3）；
  * - GET /harness/:pageId 动态生成加载壳：入口 script + 入口及其 import 链上的全部 css
  *   （解析逻辑对齐 src/webview/host/assetResolver.ts：入口键 → file + css + imports 链）；
  * - 加载壳注入与真实宿主一致的 CSP meta（镜像 src/webview/host/webviewHtml.ts，
  *   07 R-E-11）：harness 与宿主同策略，消除「harness 放行、宿主拦截」盲区
  *   （如静态 style 属性、unsafe-eval 在测试中放行而在真实宿主被拦）。
+ *
+ * 假绿消除（09 §4.2 F3）：v0.7.0 曾把静态路由挂在域根（/assets/** 直接命中），
+ * 与 vite 默认 base '/' 改写出的站点根绝对 url(/assets/…) 恰好对齐——字体 404 在
+ * e2e 中永远绿。现在产物一律走 /webview/** 子路径，CSS 内 url(/…) 解析到域根 ⇒ 404，
+ * 配合 helpers.loadPage 的 document.fonts 断言即可捕获。
  *
  * 页面入口路径表镜像 src/webview/pages.ts（单一来源在该文件，此处为测试基建副本）。
  */
@@ -19,6 +24,8 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.E2E_PORT || 3999)
 const HOST = '127.0.0.1'
 const ROOT = fileURLToPath(new URL('../../dist/webview/', import.meta.url))
+/** 静态产物挂载前缀（模拟宿主 asWebviewUri 的「子路径资源根」语义）。 */
+const STATIC_PREFIX = '/webview/'
 /** harness 资源同源域（对应宿主 CSP 中的 cspSource）。 */
 const CSP_ORIGIN = `http://${HOST}:${PORT}`
 
@@ -122,7 +129,10 @@ async function buildHarnessHtml(pageId) {
     return { status: 404, body: `manifest 中找不到入口「${pageId}」的产物` }
   }
   const cssFiles = collectCssFiles(manifest, chunk, new Set([pageId]))
-  const cssLinks = cssFiles.map((file) => `<link rel="stylesheet" href="/${file}">`).join('\n    ')
+  // F3：链接走 /webview/ 前缀（非域根）——CSS 内部相对 url 正常解析、站点根绝对 url(/…) 404
+  const cssLinks = cssFiles
+    .map((file) => `<link rel="stylesheet" href="/webview/${file}">`)
+    .join('\n    ')
   // 与宿主一致：每帧重新生成 nonce（宿主侧见 webviewController.renderHtml）
   const nonce = randomBytes(16).toString('hex')
   const html = `<!DOCTYPE html>
@@ -136,13 +146,16 @@ async function buildHarnessHtml(pageId) {
 </head>
 <body>
   <div id="app" data-page="${pageId}"></div>
-  <script type="module" nonce="${nonce}" src="/${chunk.file}"></script>
+  <script type="module" nonce="${nonce}" src="/webview/${chunk.file}"></script>
 </body>
 </html>`
   return { status: 200, body: html, contentType: MIME_TYPES['.html'] }
 }
 
-/** 解析 /assets/... 之类的静态请求到 ROOT 内的真实文件；越界返回 undefined。 */
+/**
+ * 解析 /webview/... 前缀的静态请求到 ROOT 内的真实文件；越界或未带前缀返回 undefined。
+ * 域根路径（如 /assets/...）不再路由 ⇒ CSS 内站点根绝对 url 会 404（F3 假绿消除）。
+ */
 function resolveStaticPath(pathname) {
   let decoded
   try {
@@ -150,10 +163,10 @@ function resolveStaticPath(pathname) {
   } catch {
     return undefined
   }
-  if (!decoded.startsWith('/')) {
+  if (!decoded.startsWith(STATIC_PREFIX)) {
     return undefined
   }
-  const filePath = resolve(ROOT, `.${decoded}`)
+  const filePath = resolve(ROOT, `.${decoded.slice(STATIC_PREFIX.length - 1)}`)
   const rootWithSep = ROOT.endsWith(sep) ? ROOT : ROOT + sep
   if (filePath !== ROOT && !filePath.startsWith(rootWithSep)) {
     return undefined
@@ -194,10 +207,12 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    // 静态产物（assets/**、.vite/manifest.json 等，限制在 ROOT 内）
+    // 静态产物（仅 /webview/** 前缀，限制在 ROOT 内；域根请求一律 404）
     const filePath = resolveStaticPath(url.pathname)
     if (!filePath) {
-      res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }).end('forbidden')
+      res
+        .writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+        .end(`not found: ${url.pathname}`)
       return
     }
     let body

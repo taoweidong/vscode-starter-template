@@ -83,6 +83,17 @@ export async function loadPage(page: Page, pageId: string): Promise<void> {
   await page.addInitScript({ content: INIT_SCRIPT })
   await page.goto(`${BASE_URL}/harness/${pageId}`)
   await page.locator('#app .app-shell').first().waitFor()
+  // F3（09 方案 §4.2）：codicon 字体加载断言。harness 静态路由已收敛到 /webview/**
+  // 子路径，CSS 内站点根绝对 url(/…) 解析到域根 ⇒ 404。fonts.load() 主动触发字体
+  // 请求（不依赖页面是否渲染了 codicon 元素），404 时 promise reject ⇒ 此处变红。
+  // 第二参是 codepoint 取样文本，必须非空（codicon 图标位于 PUA 区 U+E900 起，
+  // 空串不匹配任何字形、静默返回空数组）。
+  await page.evaluate(async () => {
+    await document.fonts.load('16px codicon', '\uE900')
+  })
+  await page.waitForFunction(() => document.fonts.check('16px codicon'), undefined, {
+    timeout: 5_000,
+  })
 }
 
 /** 模拟宿主下发消息：在 window 上派发 MessageEvent（页面监听 window 'message'）。 */

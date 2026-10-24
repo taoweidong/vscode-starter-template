@@ -11,6 +11,10 @@ import { WEBVIEW_PAGES } from './src/webview/pages'
  * - sourcemap hidden：可上报但不进 vsix。
  */
 export default defineConfig({
+  // F1（09 方案 §4.1）：相对基址。webview HTML 由宿主动态拼装、无 <base> 标签（CSP
+  // base-uri 'none'），默认 '/' 会把 CSS 内相对 url() 改写成站点根绝对路径 /assets/…，
+  // 在 webview 域根下解析、超出 localResourceRoots ⇒ 404 ⇒ codicon 字体加载失败全图标空白。
+  base: './',
   plugins: [vue()],
   resolve: {
     alias: {
