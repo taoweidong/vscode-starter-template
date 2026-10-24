@@ -251,6 +251,9 @@ npm run package:vsix            # 一键：完整构建 + vsce 打包 → releas
 npm run package:vsix -- --clean # 打包前清空 release/ 归档目录（重新归档）
 ```
 
+Windows 下也可**双击根目录的 `package.bat`**（命令行用法 `package.bat [--clean]`）：
+内部等价 `npm run package:vsix`，结束时暂停显示结果，未装 Node 时给出安装提示。
+
 - 跨平台（Linux / Windows 通用）：脚本为纯 Node 实现（`scripts/package-vsix.ts`），无 shell 语法；
 - vsce（`@vscode/vsce`）已内置在 devDependencies，**无需全局安装**；
 - 产物统一归档到仓库根目录的 `release/`（已被 `.gitignore` 与 `.vscodeignore` 排除，根目录保持整洁）；
