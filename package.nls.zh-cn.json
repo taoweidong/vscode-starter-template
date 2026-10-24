@@ -24,6 +24,6 @@
   "command.draftFile.title": "登记文件到草稿箱",
   "command.draftFolder.title": "登记文件夹内容到草稿箱",
   "configuration.title": "扩展模板",
-  "configuration.runStartupTasks.description": "插件激活时自动执行启动任务（环境检测脚本）。默认关闭——改为点击「环境信息」视图的刷新按钮或单击单个探针条目按需检测。",
+  "configuration.runStartupTasks.description": "插件激活时自动执行启动任务（初始化脚本「Hello World」+ 环境检测）。关闭后可在「环境信息」视图手动触发。",
   "configuration.serialConsoleEnabled.description": "启用串口服务器管理与命令控制台（服务器录入 / 命令下发 / 实时输出）。"
 }

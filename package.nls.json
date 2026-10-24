@@ -24,6 +24,6 @@
   "command.draftFile.title": "Draft File",
   "command.draftFolder.title": "Draft Folder Contents",
   "configuration.title": "Extension Starter",
-  "configuration.runStartupTasks.description": "Run startup tasks (environment detection) on activation. Off by default — click the refresh button in the Environment view or a single probe item to run on demand.",
+  "configuration.runStartupTasks.description": "Run startup tasks on activation (init script \"Hello World\" + environment detection). Turn off to trigger manually from the Environment view.",
   "configuration.serialConsoleEnabled.description": "Enable serial server management and the command console (server entries / command sending / live output)."
 }

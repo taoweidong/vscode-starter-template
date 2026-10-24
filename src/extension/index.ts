@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.createTreeView(VIEW.envViewId, { treeDataProvider: envProvider })
   )
   if (
-    vscode.workspace.getConfiguration(CONFIG.section).get<boolean>(CONFIG.runStartupTasks, false)
+    vscode.workspace.getConfiguration(CONFIG.section).get<boolean>(CONFIG.runStartupTasks, true)
   ) {
     // runAll 不 await——探测走子进程，不能阻塞激活流程
     void taskRunner.runAll()

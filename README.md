@@ -26,6 +26,12 @@
 | 组件画廊     | 设计系统视觉验收基准（开发用），新页面的最佳抄写起点                             |
 | 串口控制台   | 真实业务页面：服务器表单（SchemaForm 驱动）/ 命令输入 / 输出流 / 历史 5 个子组件 |
 
+**启动脚本（VSCode 打开时自动执行）**：扩展激活即自动运行启动任务——先执行「初始化脚本」
+（当前内置演示：向输出通道打印 `Hello, World!`），随后环境检测（含 Python 版本检查），
+全过程逐行打印在输出通道（控制台）中；开关 `extStarter.runStartupTasks`（默认开启）。
+**预留的扩展接口**：新增脚本 = 实现 `StartupTask` 接口并在 `taskRegistry.ts` 的 `TASKS`
+数组加一项，调度 / 超时 / 异常降级 / 控制台打印 / 视图分组全部自动生效。
+
 **草稿箱（右键示例载体）**：编辑器右键（登记选中 / 追加到最近草稿 / 登记当前文件）、
 资源管理器右键（登记文件·支持多选批量 / 登记文件夹内容）、编辑器标题栏——共 8 条入口，
 统一写入工作区 `.vscode/ext-starter.drafts.json`（原子写、上限 100 条）。
@@ -96,7 +102,7 @@ npm run gate      # 一键式质量门禁：lint/格式→类型→双构建→�
 调试窗口中的体验路径：
 
 1. 活动栏出现「扩展模板」图标，点击进入侧边栏（4 个视图）；
-2. 「环境信息」默认不自动探测（设置 `extStarter.runStartupTasks` 可打开），点标题栏 ↻ 或单击任一探针条目按需检测；
+2. 扩展激活即自动执行启动任务（初始化脚本 Hello World + 环境检测，含 Python 版本检查），过程打印在输出通道（`extStarter.runStartupTasks` 可关闭）；之后点标题栏 ↻ 或单击任一探针条目按需重检；
 3. `npm run gate -- --with-e2e` 可追加 Webview E2E（Playwright + Edge）。
 
 其他常用脚本：
@@ -185,6 +191,33 @@ serverStore（工作区 JSON 文件 + Memento 双实现，原子写）
 ```
 
 完成。环境检测条目、缺失提示、**树视图单击单独重检**全部自动跟随，零改动其他文件。
+
+### 1.5 新增一个启动脚本（初始化脚本注册表）
+
+VSCode 打开时会自动执行 `taskRegistry.ts` 中 `TASKS` 数组里的全部任务并打印到输出通道。
+新增脚本 = 实现 `StartupTask` 接口 + 数组加一项：
+
+```ts
+// src/extension/tasks/myScript.ts —— 动作类脚本最小样板（helloTask.ts 即现成示例）
+export const myTask: StartupTask = {
+  id: 'my-script',
+  title: '我的脚本',
+  async run(ctx) {
+    ctx.output.appendLine('[我的脚本] 执行中…') // 实时打印到控制台
+    return {
+      taskId: 'my-script',
+      taskTitle: '我的脚本',
+      status: 'ok',
+      durationMs: 0,
+      finishedAt: new Date().toISOString(),
+      items: [],
+    }
+  },
+}
+// taskRegistry.ts：TASKS = [helloTask, myTask, environmentTask]
+```
+
+调度、超时裁决、异常降级、控制台打印、「环境信息」视图分组全部自动生效。
 
 ### 2. 新增一个命令
 

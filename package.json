@@ -289,7 +289,7 @@
       "properties": {
         "extStarter.runStartupTasks": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%configuration.runStartupTasks.description%"
         },
         "extStarter.serialConsoleEnabled": {
