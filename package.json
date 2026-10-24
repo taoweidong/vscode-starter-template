@@ -313,7 +313,7 @@
     "build:host": "tsx scripts/build-extension.ts",
     "build:webview": "vite build",
     "package": "npm run check-types && npm run build:host && npm run build:webview",
-    "package:vsix": "npm run package && vsce package",
+    "package:vsix": "tsx scripts/package-vsix.ts",
     "compile-tests": "tsc -p tsconfig.node.json --outDir out",
     "pretest": "npm run compile-tests",
     "test": "node out/test/runTest.js",

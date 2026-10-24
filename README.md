@@ -214,11 +214,13 @@ Vite 入口、manifest 解析、e2e harness、宿主面板控制器全部自动�
 ### 5. 打包发布
 
 ```bash
-npm run package:vsix   # 一键：类型检查 + 生产构建 + vsce package，产出 .vsix
+npm run package:vsix            # 一键：完整构建 + vsce 打包 → release/<name>-<version>.vsix
+npm run package:vsix -- --clean # 打包前清空 release/ 归档目录（重新归档）
 ```
 
+- 跨平台（Linux / Windows 通用）：脚本为纯 Node 实现（`scripts/package-vsix.ts`），无 shell 语法；
 - vsce（`@vscode/vsce`）已内置在 devDependencies，**无需全局安装**；
-- 产物为仓库根目录的 `<name>-<version>.vsix`（已被 `.gitignore` 排除）；
+- 产物统一归档到仓库根目录的 `release/`（已被 `.gitignore` 与 `.vscodeignore` 排除，根目录保持整洁）；
 - 门禁第 ⑨ 步已内置 vsce 黑白名单与 bundle 体积预算（宿主 ≤150KB、单 chunk ≤100KB、vsix ≤20MB）。
 
 发布到市场（需 publisher 账号 + PAT）：

@@ -12,7 +12,6 @@ src/**
 docs/**
 dist/**/*.map
 .gitignore
-esbuild.js
 tsconfig.json
 **/*.ts
 .ai-memory/**
@@ -33,4 +32,8 @@ test-results/**
 playwright-report/**
 coverage/**
 .prettierignore
+.prettierrc
+.gitattributes
+.workbuddy/**
+release/**
 *.vsix

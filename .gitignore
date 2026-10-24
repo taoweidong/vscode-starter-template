@@ -5,6 +5,7 @@ out/
 .vscode-test/**
 .ext-starter/
 *.vsix
+release/
 .ai-memory/
 
 # 运行时数据文件（串口服务器清单；草稿箱走下方通配）

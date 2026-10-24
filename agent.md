@@ -80,19 +80,19 @@ webview/（Vue 3 页面：host 宿主控制器 + components SchemaForm + apps �
 
 ## 常用命令
 
-| 命令                   | 用途                                                        |
-| ---------------------- | ----------------------------------------------------------- |
-| `npm run gate`         | 一键式质量门禁（提交 / 收尾必跑；`-- --fast` 跳过宿主集成） |
-| `npm run test:unit`    | 快速单元测试（Vitest，不启动 VSCode，日常每轮必跑）         |
-| `npm run test:e2e`     | Webview 页面测试（Playwright + Edge，先构建 Webview）       |
-| `npm run lint`         | ESLint 检查（flat config，eslint.config.ts）                |
-| `npm run format:check` | Prettier 格式检查（`npm run format` 一键修复）              |
-| `npm run compile`      | 类型检查（tsc + vue-tsc）+ 宿主构建 + Webview 构建          |
-| `npm run watch`        | 宿主构建监听模式（调试时用）                                |
-| `npm run package`      | 类型检查 + 生产构建（宿主 + Webview）                       |
-| `npm run package:vsix` | 一键打包离线 .vsix（免全局安装 vsce）                       |
-| `npm test`             | 仅跑宿主集成测试（需 .vscode-test 缓存）                    |
-| `F5`（VSCode）         | 启动扩展开发宿主调试                                        |
+| 命令                   | 用途                                                            |
+| ---------------------- | --------------------------------------------------------------- |
+| `npm run gate`         | 一键式质量门禁（提交 / 收尾必跑；`-- --fast` 跳过宿主集成）     |
+| `npm run test:unit`    | 快速单元测试（Vitest，不启动 VSCode，日常每轮必跑）             |
+| `npm run test:e2e`     | Webview 页面测试（Playwright + Edge，先构建 Webview）           |
+| `npm run lint`         | ESLint 检查（flat config，eslint.config.ts）                    |
+| `npm run format:check` | Prettier 格式检查（`npm run format` 一键修复）                  |
+| `npm run compile`      | 类型检查（tsc + vue-tsc）+ 宿主构建 + Webview 构建              |
+| `npm run watch`        | 宿主构建监听模式（调试时用）                                    |
+| `npm run package`      | 类型检查 + 生产构建（宿主 + Webview）                           |
+| `npm run package:vsix` | 一键打包离线 .vsix 并归档到 release/（免全局安装 vsce，跨平台） |
+| `npm test`             | 仅跑宿主集成测试（需 .vscode-test 缓存）                        |
+| `F5`（VSCode）         | 启动扩展开发宿主调试                                            |
 
 ## 已知事项
 
