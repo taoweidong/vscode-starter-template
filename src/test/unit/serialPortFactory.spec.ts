@@ -35,8 +35,7 @@ class FakeSerialPortStream {
 function loaderOf(
   streamClass: new (options: Record<string, unknown>) => unknown
 ): SerialPortModuleLoader {
-  return () =>
-    ({ SerialPort: streamClass, list: async () => [{ path: 'COM3' }] }) as never
+  return () => ({ SerialPort: streamClass, list: async () => [{ path: 'COM3' }] }) as never
 }
 
 describe('createNodeSerialPortFactory（注入 loader，不加载原生模块）', () => {

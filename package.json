@@ -66,6 +66,10 @@
         {
           "id": "crudStarter.buildView",
           "name": "分支编译"
+        },
+        {
+          "id": "crudStarter.serialServersView",
+          "name": "串口服务器"
         }
       ]
     },
@@ -253,6 +257,40 @@
         "title": "打开组件画廊",
         "category": "CRUD Starter",
         "icon": "$(library)"
+      },
+      {
+        "command": "crudStarter.openSerialConsole",
+        "title": "打开串口控制台",
+        "category": "CRUD Starter",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "crudStarter.addSerialServer",
+        "title": "新增串口服务器",
+        "category": "CRUD Starter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "crudStarter.editSerialServer",
+        "title": "编辑串口服务器",
+        "category": "CRUD Starter"
+      },
+      {
+        "command": "crudStarter.deleteSerialServer",
+        "title": "删除串口服务器",
+        "category": "CRUD Starter"
+      },
+      {
+        "command": "crudStarter.connectSerialServer",
+        "title": "连接并打开控制台",
+        "category": "CRUD Starter",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "crudStarter.refreshSerialServers",
+        "title": "刷新串口服务器列表",
+        "category": "CRUD Starter",
+        "icon": "$(refresh)"
       }
     ],
     "submenus": [
@@ -316,6 +354,21 @@
           "command": "crudStarter.buildBranch",
           "when": "view == crudStarter.buildView",
           "group": "navigation@1"
+        },
+        {
+          "command": "crudStarter.openSerialConsole",
+          "when": "view == crudStarter.serialServersView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "crudStarter.addSerialServer",
+          "when": "view == crudStarter.serialServersView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "crudStarter.refreshSerialServers",
+          "when": "view == crudStarter.serialServersView",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -333,6 +386,36 @@
           "command": "crudStarter.buildBranch",
           "when": "view == crudStarter.buildView && viewItem == buildBranch",
           "group": "inline@1"
+        },
+        {
+          "command": "crudStarter.connectSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "group": "inline@1"
+        },
+        {
+          "command": "crudStarter.connectSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "group": "1_serial@1"
+        },
+        {
+          "command": "crudStarter.editSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "group": "1_serial@2"
+        },
+        {
+          "command": "crudStarter.editSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "group": "1_serial@2"
+        },
+        {
+          "command": "crudStarter.deleteSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "group": "1_serial@3"
+        },
+        {
+          "command": "crudStarter.deleteSerialServer",
+          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "group": "1_serial@3"
         },
         {
           "command": "crudStarter.editItem",
@@ -490,6 +573,11 @@
           "type": "boolean",
           "default": true,
           "description": "特性开关：数据文件 / 静态配置被外部修改时自动重新加载。"
+        },
+        "crudStarter.features.serialConsole": {
+          "type": "boolean",
+          "default": true,
+          "description": "特性开关：启用串口服务器管理与命令控制台。"
         }
       }
     }

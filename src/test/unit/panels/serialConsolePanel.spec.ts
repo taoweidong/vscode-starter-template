@@ -158,10 +158,7 @@ describe('serialConsolePanel：init 与列表请求', () => {
     await vi.waitFor(() => {
       expect(lastPosted(panel, 'serialPorts')).toEqual({
         type: 'serialPorts',
-        ports: [
-          { path: 'COM3' },
-          { path: 'COM4', manufacturer: 'USB-SERIAL' },
-        ],
+        ports: [{ path: 'COM3' }, { path: 'COM4', manufacturer: 'USB-SERIAL' }],
       })
     })
   })
@@ -234,8 +231,8 @@ describe('serialConsolePanel：连接 / 下发 / 历史', () => {
     panel.webview.__emit({ type: 'serialSend', command: 'ls' })
     await vi.waitFor(() => {
       const history = lastPosted(panel, 'commandHistory')
-      const entries = (history as { entries: { command: string; useCount: number }[] })
-        ?.entries ?? []
+      const entries =
+        (history as { entries: { command: string; useCount: number }[] })?.entries ?? []
       expect(entries.map((e) => [e.command, e.useCount])).toEqual([
         ['ls', 1],
         ['show version', 2],
@@ -249,7 +246,9 @@ describe('serialConsolePanel：连接 / 下发 / 历史', () => {
     const panel = await openPanel(services)
     panel.webview.__emit({ type: 'serialSend', command: 'ls' })
     await vi.waitFor(() => {
-      expect(lastPosted(panel, 'error')).toMatchObject({ message: expect.stringContaining('未连接') })
+      expect(lastPosted(panel, 'error')).toMatchObject({
+        message: expect.stringContaining('未连接'),
+      })
     })
     expect(portFactory.lastPort).toBeUndefined()
   })

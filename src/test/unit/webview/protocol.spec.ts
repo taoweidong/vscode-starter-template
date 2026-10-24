@@ -239,12 +239,21 @@ describe('isWebviewMessage：串口控制台消息', () => {
 
 describe('isHostMessage：串口控制台消息', () => {
   it.each([
-    ['serialPorts', { type: 'serialPorts', ports: [{ path: 'COM3' }, { path: 'COM4', manufacturer: 'USB' }] }],
+    [
+      'serialPorts',
+      { type: 'serialPorts', ports: [{ path: 'COM3' }, { path: 'COM4', manufacturer: 'USB' }] },
+    ],
     ['serialPorts 空数组', { type: 'serialPorts', ports: [] }],
     ['serialServers', { type: 'serialServers', servers: [serialServer] }],
     ['serialState 已连接', { type: 'serialState', serverId: 'srv-1', state: 'connected' }],
-    ['serialState 断开（serverId=null）', { type: 'serialState', serverId: null, state: 'disconnected' }],
-    ['serialState 带错误', { type: 'serialState', serverId: 'srv-1', state: 'error', error: 'COM 被占用' }],
+    [
+      'serialState 断开（serverId=null）',
+      { type: 'serialState', serverId: null, state: 'disconnected' },
+    ],
+    [
+      'serialState 带错误',
+      { type: 'serialState', serverId: 'srv-1', state: 'error', error: 'COM 被占用' },
+    ],
     ['serialData', { type: 'serialData', seq: 1, text: 'Ubuntu 22.04' }],
     ['commandHistory', { type: 'commandHistory', entries: [historyEntry] }],
     ['commandHistory 空数组', { type: 'commandHistory', entries: [] }],
@@ -268,11 +277,17 @@ describe('isHostMessage：串口控制台消息', () => {
     ['serialState 缺 state', { type: 'serialState', serverId: 'srv-1' }],
     ['serialState.state 非法字面量', { type: 'serialState', serverId: 'srv-1', state: 'open' }],
     ['serialState.serverId 数字', { type: 'serialState', serverId: 1, state: 'connected' }],
-    ['serialState.error 非字符串', { type: 'serialState', serverId: null, state: 'error', error: 42 }],
+    [
+      'serialState.error 非字符串',
+      { type: 'serialState', serverId: null, state: 'error', error: 42 },
+    ],
     ['serialData 缺 seq', { type: 'serialData', text: 'x' }],
     ['serialData.seq 非数字', { type: 'serialData', seq: '1', text: 'x' }],
     ['serialData.text 非字符串', { type: 'serialData', seq: 1, text: null }],
-    ['commandHistory 元素缺 useCount', { type: 'commandHistory', entries: [{ id: 'h1', command: 'x', lastUsedAt: 1 }] }],
+    [
+      'commandHistory 元素缺 useCount',
+      { type: 'commandHistory', entries: [{ id: 'h1', command: 'x', lastUsedAt: 1 }] },
+    ],
     [
       'commandHistory 元素 command 非字符串',
       { type: 'commandHistory', entries: [{ id: 'h1', command: 1, lastUsedAt: 1, useCount: 1 }] },

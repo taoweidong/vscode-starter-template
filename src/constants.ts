@@ -14,8 +14,14 @@ export const VIEW = {
   staticConfigViewId: 'crudStarter.staticConfigView',
   /** 分支编译视图 ID */
   buildViewId: 'crudStarter.buildView',
+  /** 串口服务器树视图 ID */
+  serialServersViewId: 'crudStarter.serialServersView',
   /** 树条目的 contextValue（用于菜单 when 条件） */
   itemContextValue: 'crudItem',
+  /** 串口服务器树条目的 contextValue（未连接） */
+  serialServerContextValue: 'serialServer',
+  /** 串口服务器树条目的 contextValue（已连接，图标/菜单可区分） */
+  serialServerConnectedContextValue: 'serialServerConnected',
 } as const
 
 /** 命令 ID（与 package.json 的 contributes 保持一致）。 */
@@ -80,6 +86,20 @@ export const COMMAND = {
   openImportWizard: 'crudStarter.openImportWizard',
   /** 打开组件画廊（开发用：设计系统视觉验收基准） */
   openGallery: 'crudStarter.openGallery',
+
+  // 串口命令控制台
+  /** 打开串口控制台页面（命令面板 / 视图标题栏） */
+  openSerialConsole: 'crudStarter.openSerialConsole',
+  /** 新增串口服务器（打开控制台页面表单） */
+  addSerialServer: 'crudStarter.addSerialServer',
+  /** 编辑串口服务器（打开控制台页面并预选） */
+  editSerialServer: 'crudStarter.editSerialServer',
+  /** 删除串口服务器（树右键；模态确认 + 清理密码） */
+  deleteSerialServer: 'crudStarter.deleteSerialServer',
+  /** 连接串口服务器并打开控制台（树条目单击 / inline 按钮） */
+  connectSerialServer: 'crudStarter.connectSerialServer',
+  /** 刷新串口服务器树视图 */
+  refreshSerialServers: 'crudStarter.refreshSerialServers',
 } as const
 
 /** 配置项键名（对应设置里的 crudStarter.*）。 */

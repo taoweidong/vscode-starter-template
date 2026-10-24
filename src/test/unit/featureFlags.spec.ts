@@ -58,13 +58,14 @@ describe('featureFlags 写入作用域（P1-08）', () => {
   })
 
   it('开关清单与 package.json 的 crudStarter.features.* 声明一一对应（门禁兜底，此处锁定数量）', () => {
-    // 5 个开关：删除确认 / 成功通知 / 优先级图标 / 视图徽标 / 自动刷新
+    // 6 个开关：删除确认 / 成功通知 / 优先级图标 / 视图徽标 / 自动刷新 / 串口控制台
     expect(FEATURE_FLAGS.map((flag) => flag.key)).toEqual([
       'confirmDelete',
       'successNotifications',
       'showPriorityIcons',
       'showViewBadges',
       'autoRefreshOnExternalChange',
+      'serialConsole',
     ])
     for (const flag of FEATURE_FLAGS) {
       expect(typeof flag.defaultValue).toBe('boolean')

@@ -8,11 +8,7 @@
  * 新增页面 = 本表一项 + apps/<pageId>/ 目录（FR-16-AC2）。
  */
 export type WebviewPageId =
-  | 'itemForm'
-  | 'featureConfig'
-  | 'importWizard'
-  | 'gallery'
-  | 'serialConsole'
+  'itemForm' | 'featureConfig' | 'importWizard' | 'gallery' | 'serialConsole'
 
 export interface WebviewPageDef {
   /** 页面唯一 id，同时是 Vite 入口名与宿主 viewType 后缀 */

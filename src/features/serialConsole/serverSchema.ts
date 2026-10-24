@@ -93,7 +93,13 @@ export const SERVER_FIELD_DEFS: SchemaFieldDef[] = [
     defaultValue: 'false',
     hint: '连接后自动发送用户名与密码',
   },
-  { key: 'username', type: 'text', label: '登录用户名', maxLength: 100, placeholder: '自动登录时必填' },
+  {
+    key: 'username',
+    type: 'text',
+    label: '登录用户名',
+    maxLength: 100,
+    placeholder: '自动登录时必填',
+  },
   {
     key: 'password',
     type: 'text',
@@ -140,7 +146,11 @@ export function coerceServerDraft(raw: Record<string, unknown>): CoerceServerDra
     return { ok: false, field: 'username', message: '开启自动登录时必须填写登录用户名。' }
   }
 
-  const baudRate = coerceNumberFromSelect('波特率', source.baudRate, BAUD_RATES as readonly number[])
+  const baudRate = coerceNumberFromSelect(
+    '波特率',
+    source.baudRate,
+    BAUD_RATES as readonly number[]
+  )
   if (typeof baudRate !== 'number') return { ok: false, field: 'baudRate', message: baudRate }
   const dataBits = coerceNumberFromSelect('数据位', source.dataBits, DATA_BITS)
   if (typeof dataBits !== 'number') return { ok: false, field: 'dataBits', message: dataBits }
@@ -153,11 +163,19 @@ export function coerceServerDraft(raw: Record<string, unknown>): CoerceServerDra
   }
   const flowControl = source.flowControl
   if (typeof flowControl !== 'string' || !FLOW_CONTROLS.includes(flowControl as FlowControl)) {
-    return { ok: false, field: 'flowControl', message: `流控的值「${String(flowControl)}」不在可选项内。` }
+    return {
+      ok: false,
+      field: 'flowControl',
+      message: `流控的值「${String(flowControl)}」不在可选项内。`,
+    }
   }
   const lineEnding = source.lineEnding
   if (typeof lineEnding !== 'string' || !LINE_ENDING_SET.has(lineEnding as LineEnding)) {
-    return { ok: false, field: 'lineEnding', message: `命令换行符的值「${String(lineEnding)}」不在可选项内。` }
+    return {
+      ok: false,
+      field: 'lineEnding',
+      message: `命令换行符的值「${String(lineEnding)}」不在可选项内。`,
+    }
   }
 
   const draft: SerialServerDraft = {

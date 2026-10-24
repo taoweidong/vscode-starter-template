@@ -2,15 +2,16 @@ import * as vscode from 'vscode'
 import { STORAGE } from '../../constants'
 import { deriveFormSchema, toFieldDefs } from '../../webview/formSchema'
 import type { HostMessage, SerialServerWire, WebviewMessage } from '../../webview/protocol'
-import {
-  WebviewController,
-  type WebviewControllerDeps,
-} from '../../webview/host/webviewController'
+import { WebviewController, type WebviewControllerDeps } from '../../webview/host/webviewController'
 import type { CommandHistoryService } from './commandHistoryService'
 import type { SerialServer } from './models'
 import { createServerId } from './models'
 import type { SerialPortFactory } from './serialPortFactory'
-import { createSerialLinkService } from './serialLinkService'
+import {
+  createSerialLinkService,
+  type LinkState,
+  type SerialLinkService,
+} from './serialLinkService'
 import { coerceServerDraft, SERVER_FIELD_DEFS } from './serverSchema'
 import type { IServerStore } from './serverStore'
 
@@ -38,10 +39,26 @@ export interface SerialConsoleServices {
   history: CommandHistoryService
   portFactory: SerialPortFactory
   secrets: SecretStorageLike
+  /**
+   * 共享串口链路（extension.ts 的 SerialConsoleController 注入）：
+   * 提供时面板复用该链路，串口消息推送由其 hooks 负责（面板不再自建）；
+   * 缺省时面板自建（单测场景），行为等价。
+   */
+  link?: SerialLinkService
+  /** 连接状态快照（树视图读取；面板/控制器更新）。 */
+  linkStatus?: LinkStatusSnapshot
+  /** 面板发起连接前通知（控制器记录目标服务器，供 serialState/树视图关联）。 */
+  onBeforeConnect?: (serverId: string) => void
   /** 服务器增删改后通知（extension.ts 接树视图刷新）。 */
   onServersChanged?: () => void
   /** 诊断日志出口（输出通道）；密码等敏感值绝不打印。 */
   logger?: (message: string) => void
+}
+
+/** 树视图 / 控制器读取的连接状态快照（serverId 为空表示无关联目标）。 */
+export interface LinkStatusSnapshot {
+  serverId: string | undefined
+  state: LinkState
 }
 
 /** 自动登录时序（设计文档 §7：连接后 800ms 发用户名，再 500ms 发密码；测试可注入短延时）。 */
@@ -50,7 +67,7 @@ export const AUTO_LOGIN_PASSWORD_DELAY_MS = 500
 
 const PASSWORD_KEY_SUFFIX = '.password'
 
-function passwordKey(serverId: string): string {
+export function passwordKey(serverId: string): string {
   return `${STORAGE.serialServerSecretPrefix}${serverId}${PASSWORD_KEY_SUFFIX}`
 }
 
@@ -62,7 +79,7 @@ function reasonOf(err: unknown): string {
  * SerialServer → 协议线类型（接口缺隐式索引签名，经对象字面量展开获得；
  * 与 formSchema.toFieldDefs 的匿名字面量拷贝同理）。
  */
-function toServerWire(server: SerialServer): SerialServerWire {
+export function toServerWire(server: SerialServer): SerialServerWire {
   return { ...server }
 }
 
@@ -90,11 +107,23 @@ export function createSerialConsoleDeps(
   /** 当前连接目标（serialState 推送时标识；断开不清除，便于页面关联错误信息）。 */
   let activeServerId: string | undefined
 
-  const link = createSerialLinkService(services.portFactory, {
-    onData: (text, seq) => void post({ type: 'serialData', seq, text }),
-    onState: (state, error) =>
-      void post({ type: 'serialState', serverId: activeServerId ?? null, state, error }),
-  })
+  /** 注入共享链路时消息推送与状态同步由其 hooks 负责；否则面板自建（单测场景）。 */
+  const syncStatus = (state: LinkState): void => {
+    if (services.linkStatus) {
+      services.linkStatus.state = state
+      services.linkStatus.serverId = activeServerId
+    }
+  }
+
+  const link =
+    services.link ??
+    createSerialLinkService(services.portFactory, {
+      onData: (text, seq) => void post({ type: 'serialData', seq, text }),
+      onState: (state, error) => {
+        syncStatus(state)
+        void post({ type: 'serialState', serverId: activeServerId ?? null, state, error })
+      },
+    })
 
   async function post(message: HostMessage): Promise<void> {
     WebviewController.get('serialConsole')?.post(message)
@@ -117,7 +146,10 @@ export function createSerialConsoleDeps(
     if (!server.autoLogin || server.username.length === 0) return
     const password = await services.secrets.get(passwordKey(server.id))
     if (!password) {
-      await post({ type: 'error', message: '未保存登录密码：请编辑服务器并填写密码后再使用自动登录。' })
+      await post({
+        type: 'error',
+        message: '未保存登录密码：请编辑服务器并填写密码后再使用自动登录。',
+      })
       return
     }
     await wait(usernameDelay)
@@ -185,6 +217,8 @@ export function createSerialConsoleDeps(
       return
     }
     activeServerId = serverId
+    services.onBeforeConnect?.(serverId)
+    syncStatus('connecting')
     try {
       await link.connect(target)
       await maybeAutoLogin(target)

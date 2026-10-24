@@ -12,6 +12,8 @@ import { InitTreeProvider } from './features/init/initTreeProvider'
 import { createInitSteps } from './features/init/initSteps'
 import { StaticConfigService } from './features/staticConfig/staticConfigService'
 import { StaticConfigTreeProvider } from './features/staticConfig/staticConfigTreeProvider'
+import { SerialConsoleController } from './features/serialConsole/serialConsoleController'
+import { SerialConsolePanel } from './features/serialConsole/serialConsolePanel'
 import { ImportWizardPanel } from './providers/importWizardPanel'
 import { createItemFormSerializerDeps, ItemFormPanel } from './providers/itemFormPanel'
 import type { TreeNode } from './providers/itemsTreeDataProvider'
@@ -162,6 +164,15 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.createTreeView(VIEW.buildViewId, { treeDataProvider: buildProvider })
   )
 
+  // ---------- 串口命令控制台：控制器（共享链路/状态）+ 树视图 ----------
+  const serialConsole = new SerialConsoleController(context, outputChannel)
+  context.subscriptions.push(serialConsole)
+  context.subscriptions.push(
+    vscode.window.createTreeView(VIEW.serialServersViewId, {
+      treeDataProvider: serialConsole.treeProvider,
+    })
+  )
+
   // ---------- 静态配置的外部修改监听（数据文件 watcher 由 StorageController 管理） ----------
   const staticWatcher = createStaticConfigWatcher(context, staticConfig)
   if (staticWatcher) {
@@ -172,6 +183,7 @@ export function activate(context: vscode.ExtensionContext): void {
   ItemFormPanel.configure(context)
   ConfigFormPanel.configure(context)
   ImportWizardPanel.configure(context)
+  SerialConsolePanel.configure(context)
   WebviewController.registerSerializer(context, (pageId: WebviewPageId): WebviewControllerDeps => {
     switch (pageId) {
       case 'itemForm':
@@ -187,6 +199,9 @@ export function activate(context: vscode.ExtensionContext): void {
           buildInit: () => ({ schema: [], value: null, extra: {} }),
           onCancel: () => WebviewController.get('importWizard')?.dispose(),
         }
+      case 'serialConsole':
+        // 复用控制器的面板依赖：共享串口链路与状态，恢复面板功能完整
+        return serialConsole.panelDepsOrCreate()
       default:
         return {} // gallery 无宿主侧业务
     }
@@ -200,6 +215,7 @@ export function activate(context: vscode.ExtensionContext): void {
     initService,
     staticConfig,
     buildService,
+    serialConsole,
   })
 }
 

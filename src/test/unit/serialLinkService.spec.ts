@@ -5,10 +5,7 @@ import {
   createSerialLinkService,
   type LinkState,
 } from '../../features/serialConsole/serialLinkService'
-import {
-  FakeSerialPort,
-  FakeSerialPortFactory,
-} from './serialConsole/support/fakeSerialPort'
+import { FakeSerialPort, FakeSerialPortFactory } from './serialConsole/support/fakeSerialPort'
 
 function makeServer(overrides: Partial<SerialServer> = {}): SerialServer {
   return {

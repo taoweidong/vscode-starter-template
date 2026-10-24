@@ -55,7 +55,8 @@ export function normalizeSerialServerList(
       id,
       name,
       serialPath,
-      baudRate: typeof record.baudRate === 'number' ? record.baudRate : DEFAULT_SERIAL_PARAMS.baudRate,
+      baudRate:
+        typeof record.baudRate === 'number' ? record.baudRate : DEFAULT_SERIAL_PARAMS.baudRate,
       dataBits: fallback(record.dataBits, DEFAULT_SERIAL_PARAMS.dataBits, isDataBits),
       stopBits: fallback(record.stopBits, DEFAULT_SERIAL_PARAMS.stopBits, isStopBits),
       parity: fallback(record.parity, DEFAULT_SERIAL_PARAMS.parity, isParity),

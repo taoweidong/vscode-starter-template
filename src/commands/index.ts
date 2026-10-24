@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import type { BuildService } from '../features/build/buildService'
 import type { InitService } from '../features/init/initService'
+import type { SerialConsoleController } from '../features/serialConsole/serialConsoleController'
 import type { StaticConfigService } from '../features/staticConfig/staticConfigService'
 import { type ItemService } from '../services/itemService'
 import type { IItemStore } from '../services/stores/itemStore'
@@ -8,6 +9,7 @@ import type { TaskRunner } from '../tasks/taskRunner'
 import { registerItemCommands } from './itemCommands'
 import { registerPageCommands } from './pageCommands'
 import { registerSelectionCommands } from './selectionCommands'
+import { registerSerialConsoleCommands } from './serialConsoleCommands'
 import type { CommandRegistrar } from './shared'
 
 /** 命令层依赖集合：新增页面时在此扩展，避免参数列表无限增长。 */
@@ -23,6 +25,8 @@ export interface CommandDeps {
   initService: InitService
   staticConfig: StaticConfigService
   buildService: BuildService
+  /** 串口命令控制台（树视图 + 面板 + 历史的扩展级组装单元） */
+  serialConsole: SerialConsoleController
 }
 
 /**
@@ -44,4 +48,5 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Command
   registerItemCommands(register, deps)
   registerSelectionCommands(register, deps)
   registerPageCommands(register, { ...deps, context })
+  registerSerialConsoleCommands(register, { controller: deps.serialConsole, context })
 }

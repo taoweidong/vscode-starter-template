@@ -46,6 +46,12 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
     description: '数据文件 / 静态配置被外部修改时自动重新加载',
     defaultValue: true,
   },
+  {
+    key: 'serialConsole',
+    label: '串口控制台',
+    description: '启用串口服务器管理与命令控制台（服务器录入 / 命令下发 / 实时输出）',
+    defaultValue: true,
+  },
 ]
 
 function flagFullKey(key: string): string {

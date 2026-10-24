@@ -207,9 +207,7 @@ function isSerialServerWire(v: unknown): v is SerialServerWire {
 }
 
 function isSerialLinkStateWire(v: unknown): v is SerialLinkStateWire {
-  return (
-    v === 'connecting' || v === 'connected' || v === 'disconnected' || v === 'error'
-  )
+  return v === 'connecting' || v === 'connected' || v === 'disconnected' || v === 'error'
 }
 
 function isCommandHistoryWire(v: unknown): v is CommandHistoryWire {
@@ -249,9 +247,7 @@ export function isWebviewMessage(v: unknown): v is WebviewMessage {
     case 'serialServersRequest':
       return true
     case 'serialServerSave':
-      return (
-        isPlainObject(v.draft) && (v.password === undefined || typeof v.password === 'string')
-      )
+      return isPlainObject(v.draft) && (v.password === undefined || typeof v.password === 'string')
     case 'serialServerDelete':
       return typeof v.id === 'string'
     case 'serialConnect':

@@ -63,7 +63,9 @@ export class JsonServerStore implements IServerStore {
 
     if (Array.isArray(data)) {
       // 顶层数组：宽容读取（手写编辑常见形态），下次保存自动迁移为信封
-      this.options.onWarning?.('服务器数据文件为顶层数组格式，已兼容读取，下次保存自动迁移为信封格式。')
+      this.options.onWarning?.(
+        '服务器数据文件为顶层数组格式，已兼容读取，下次保存自动迁移为信封格式。'
+      )
       return normalizeSerialServerList(data, this.options.onWarning)
     }
     if (isEnvelopeLike(data)) {

@@ -34,6 +34,7 @@ describe('createFeatureConfigDeps：buildInit', () => {
       showPriorityIcons: true,
       showViewBadges: true,
       autoRefreshOnExternalChange: true,
+      serialConsole: true,
     })
   })
 })
