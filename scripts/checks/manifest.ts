@@ -14,7 +14,7 @@
  *   改名前缀不再需要改门禁正则）；
  * - media/icon.svg 与 media/icon.png 存在（发布元数据）。
  *
- * 09 方案阶段 2 删除的校验：FEATURE_FLAGS ↔ crudStarter.features.* 双向一致、
+ * 09 方案阶段 2 删除的校验：FEATURE_FLAGS ↔ extStarter.features.* 双向一致、
  * FORM_SCHEMA / ITEM_FIELD_DEFS 数量断言（特性开关体系与条目领域整体退场）；
  * keybindings 保持「引用必须闭合」的通用校验（当前为 0 条，新增快捷键仍受保护）。
  */

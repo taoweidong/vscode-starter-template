@@ -55,12 +55,12 @@ export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
     {
       id: 'artifactDir',
       title: '创建构建产物目录',
-      description: '创建 .crud-starter/ 目录，用于存放环境快照等本地产物',
+      description: '创建 .ext-starter/ 目录，用于存放环境快照等本地产物',
       async run(ctx) {
         if (!ctx.workspaceRoot) {
           throw new Error('未打开工作区。')
         }
-        const dirUri = vscode.Uri.joinPath(ctx.workspaceRoot, '.crud-starter')
+        const dirUri = vscode.Uri.joinPath(ctx.workspaceRoot, '.ext-starter')
         await vscode.workspace.fs.createDirectory(dirUri)
         return `目录就绪：${dirUri.fsPath}`
       },
@@ -68,7 +68,7 @@ export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
     {
       id: 'envSnapshot',
       title: '写入环境快照',
-      description: '运行环境检测并保存到 .crud-starter/environment.json，便于核对环境一致性',
+      description: '运行环境检测并保存到 .ext-starter/environment.json，便于核对环境一致性',
       async run(ctx) {
         if (!ctx.workspaceRoot) {
           throw new Error('未打开工作区。')
@@ -91,7 +91,7 @@ export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
             status: item.status,
           })),
         }
-        const fileUri = vscode.Uri.joinPath(ctx.workspaceRoot, '.crud-starter/environment.json')
+        const fileUri = vscode.Uri.joinPath(ctx.workspaceRoot, '.ext-starter/environment.json')
         // 单步重跑时 artifactDir 可能尚未执行：确保目录存在再写入
         await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
         await vscode.workspace.fs.writeFile(

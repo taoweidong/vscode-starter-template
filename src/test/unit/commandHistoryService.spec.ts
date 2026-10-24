@@ -101,7 +101,7 @@ describe('串口命令历史（自动去重 / MRU / 上限淘汰）', () => {
 
   it('坏条目防御：存储中 command 非字符串的条目被过滤', async () => {
     const memento = createMementoStub()
-    await memento.update('crudStarter.serialCommandHistory', [
+    await memento.update('extStarter.serialCommandHistory', [
       { id: '1', command: 'ok', lastUsedAt: 1, useCount: 1 },
       { id: '2', command: 42, lastUsedAt: 2, useCount: 1 },
       null,

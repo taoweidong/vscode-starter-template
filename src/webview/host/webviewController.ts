@@ -83,7 +83,7 @@ export interface WebviewControllerDeps {
 }
 
 /** 面板 viewType 前缀（与 package.json 声明的面板类型保持同一命名习惯）。 */
-const VIEW_TYPE_PREFIX = 'crudStarter.webview'
+const VIEW_TYPE_PREFIX = 'extStarter.webview'
 
 export function webviewViewType(pageId: WebviewPageId | string): string {
   return `${VIEW_TYPE_PREFIX}.${pageId}`

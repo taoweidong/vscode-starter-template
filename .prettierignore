@@ -15,3 +15,6 @@ package-lock.json
 *.svg
 *.png
 *.vsix
+
+# 扩展运行时数据文件（非源码）
+.vscode/*.json

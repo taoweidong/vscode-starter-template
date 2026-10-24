@@ -176,7 +176,7 @@ describe('serialConsolePanel：服务器保存（密码零落盘）', () => {
     expect(JSON.stringify(saved)).not.toContain('p@ss')
     expect(JSON.stringify(saved)).not.toContain('password')
     expect(secrets.size).toBe(1)
-    expect([...secrets.keys()][0]).toMatch(/^crudStarter\.serialServer\..+\.password$/)
+    expect([...secrets.keys()][0]).toMatch(/^extStarter\.serialServer\..+\.password$/)
     expect(onServersChanged).toHaveBeenCalled()
     expect(lastPosted(panel, 'serialServers')?.servers).toHaveLength(1)
   })
@@ -194,7 +194,7 @@ describe('serialConsolePanel：服务器保存（密码零落盘）', () => {
   it('编辑：留空密码保持已存凭据；createdAt 保留、updatedAt 刷新', async () => {
     const seed = makeServer({ id: 'srv-1', createdAt: 111, name: '旧名' })
     const { services, store, secrets } = makeServices([seed])
-    secrets.set('crudStarter.serialServer.srv-1.password', 'old-pass')
+    secrets.set('extStarter.serialServer.srv-1.password', 'old-pass')
     const panel = await openPanel(services)
     panel.webview.__emit({
       type: 'serialServerSave',
@@ -205,7 +205,7 @@ describe('serialConsolePanel：服务器保存（密码零落盘）', () => {
         expect.objectContaining({ id: 'srv-1', name: '新名' }),
       ])
     })
-    expect(secrets.get('crudStarter.serialServer.srv-1.password')).toBe('old-pass')
+    expect(secrets.get('extStarter.serialServer.srv-1.password')).toBe('old-pass')
     const saveCalls = (store.save as ReturnType<typeof vi.fn>).mock.calls
     const savedList = saveCalls[saveCalls.length - 1][0] as SerialServer[]
     const saved = savedList[0]
@@ -274,7 +274,7 @@ describe('serialConsolePanel：连接 / 下发 / 历史', () => {
   it('自动登录：连接后按时序发送用户名与密码，且不进命令历史', async () => {
     const seed = makeServer({ autoLogin: true, username: 'root' })
     const { services, portFactory, secrets } = makeServices([seed])
-    secrets.set('crudStarter.serialServer.srv-1.password', 's3cret')
+    secrets.set('extStarter.serialServer.srv-1.password', 's3cret')
     const panel = await openPanel(services)
     panel.webview.__emit({ type: 'serialConnect', serverId: 'srv-1' })
     await vi.waitFor(() => {
@@ -285,7 +285,7 @@ describe('serialConsolePanel：连接 / 下发 / 历史', () => {
 
   it('disconnect 推送状态；删除已连接服务器时联动断开并清理密码', async () => {
     const { services, portFactory, secrets } = makeServices([makeServer()])
-    secrets.set('crudStarter.serialServer.srv-1.password', 'p')
+    secrets.set('extStarter.serialServer.srv-1.password', 'p')
     const panel = await openPanel(services)
     panel.webview.__emit({ type: 'serialConnect', serverId: 'srv-1' })
     await vi.waitFor(() => {
@@ -296,7 +296,7 @@ describe('serialConsolePanel：连接 / 下发 / 历史', () => {
       expect(lastPosted(panel, 'serialServers')).toMatchObject({ servers: [] })
     })
     expect(portFactory.lastPort?.closeCount).toBe(1)
-    expect(secrets.get('crudStarter.serialServer.srv-1.password')).toBeUndefined()
+    expect(secrets.get('extStarter.serialServer.srv-1.password')).toBeUndefined()
     await vi.waitFor(() => {
       expect(lastPosted(panel, 'serialState')).toMatchObject({ state: 'disconnected' })
     })

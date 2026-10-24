@@ -61,7 +61,7 @@
 
    注意树条目的 `TreeItem.command`（单击触发）传的是原始 `Item`，而右键菜单传的是树节点（`ItemNode`），两者用 `toItem()` 归一化，这是树视图命令最常见的坑。
 
-2. **子菜单**：在 `package.json` 的 `contributes.submenus` 声明，再把它挂进 `contributes.menus["view/item/context"]`（`"submenu": "crudStarter.priorityMenu"`），子菜单自己的菜单项在 `menus["crudStarter.priorityMenu"]` 里声明。
+2. **子菜单**：在 `package.json` 的 `contributes.submenus` 声明，再把它挂进 `contributes.menus["view/item/context"]`（`"submenu": "extStarter.priorityMenu"`），子菜单自己的菜单项在 `menus["extStarter.priorityMenu"]` 里声明。
 
 3. **按上下文显示**：`when` 子句控制菜单出现时机——树条目菜单用 `viewItem == crudItem`（对应 `TreeItem.contextValue`），编辑器选区菜单用 `editorTextFocus && editorHasSelection`。
 
@@ -102,7 +102,7 @@ npm run gate      # 一键式质量门禁：lint/格式→类型→双构建→�
 
 1. 活动栏出现「CRUD Starter」图标，点击进入侧边栏（共 6 个视图）；
 2. 点击标题栏 ＋ 新增条目，体验表单界面；
-3. 数据默认保存在工作区的 `.vscode/crud-starter-items.json`（路径可用设置 `crudStarter.storagePath` 修改，仅允许工作区内相对路径）。
+3. 数据默认保存在工作区的 `.vscode/crud-starter-items.json`（路径可用设置 `extStarter.storagePath` 修改，仅允许工作区内相对路径）。
 
 其他常用脚本：
 
@@ -244,7 +244,7 @@ export class ApiStore implements IItemStore {
 内置的 `environmentTask`（环境检测）是完整示例：用 `execCapture()` 探测命令版本，逐项产出
 `TaskItem`（label/description/status）。后续「动作类」任务（如同步数据、初始化配置、执行构建）只需
 在 `run()` 里执行相应动作并返回结果摘要——调度、异常降级、输出通道、树视图展示全部自动生效。
-若不想在启动时自动执行，把结果写入 `package.json` 的 `crudStarter.runStartupTasks` 配置判断即可
+若不想在启动时自动执行，把结果写入 `package.json` 的 `extStarter.runStartupTasks` 配置判断即可
 （框架已内置该开关）。
 
 ### 5. 打包发布

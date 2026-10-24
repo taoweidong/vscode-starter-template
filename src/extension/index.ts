@@ -10,6 +10,7 @@ import { createInitSteps } from './features/init/initSteps'
 import { SerialConsoleController } from './features/serialConsole/serialConsoleController'
 import { SerialConsolePanel } from './features/serialConsole/serialConsolePanel'
 import { EnvironmentTreeProvider } from './providers/environmentTreeProvider'
+import { migrateLegacyKeys } from './services/legacyMigration'
 import { recheckProbeByLabel } from './tasks/environmentTask'
 import { TaskRunner } from './tasks/taskRunner'
 import { TASKS } from './tasks/taskRegistry'
@@ -25,8 +26,17 @@ import type { WebviewPageId } from '../webview/pages'
  * ItemFormPanel / ConfigFormPanel / ImportWizardPanel 接线一并清理）。
  */
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel('CRUD Starter')
+  const outputChannel = vscode.window.createOutputChannel('Extension Starter')
   context.subscriptions.push(outputChannel)
+
+  // 阶段 5.4（09 §5.2）：v0.x 旧命名数据一次性迁移（配置 / Memento；Secret 惰性搬迁）
+  void migrateLegacyKeys(context).then((migrated) => {
+    if (migrated) {
+      void vscode.window.showInformationMessage(
+        '已将旧版（v0.x）设置与数据迁移到新命名（extStarter），旧键已清理。'
+      )
+    }
+  })
 
   // ---------- 启动任务（环境信息） ----------
   const taskRunner = new TaskRunner(TASKS, outputChannel)

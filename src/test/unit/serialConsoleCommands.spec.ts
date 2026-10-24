@@ -160,12 +160,12 @@ describe('SerialConsoleController.deleteServer', () => {
     // 预置一条服务器（经 store）
     const server = makeNode('srv-x').server
     await controller2.store.save([server])
-    await context.secrets.store('crudStarter.serialServer.srv-x.password', 'p')
+    await context.secrets.store('extStarter.serialServer.srv-x.password', 'p')
 
     expect(await controller2.deleteServer('srv-x')).toBe('deleted')
     expect(await controller2.store.load()).toEqual([])
     await expect(
-      context.secrets.get('crudStarter.serialServer.srv-x.password')
+      context.secrets.get('extStarter.serialServer.srv-x.password')
     ).resolves.toBeUndefined()
 
     expect(await controller2.deleteServer('srv-x')).toBe('missing')

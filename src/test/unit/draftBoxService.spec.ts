@@ -9,7 +9,7 @@ import { __resetStubs } from './stubs/vscode'
 
 /**
  * 草稿箱服务（09 方案 §3.5：右键示例新载体）：
- * - 落盘 .vscode/crud-starter.drafts.json（B3：路径与脏检查忽略清单同源）；
+ * - 落盘 .vscode/ext-starter.drafts.json（B3：路径与脏检查忽略清单同源）；
  * - 原子写经 writeJsonAtomic；损坏文件按空数据继续；
  * - 上限 100 条防无限增长；追加 / 文件 / 文件夹三种登记形态。
  */

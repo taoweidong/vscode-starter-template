@@ -7,7 +7,7 @@ import { writeJsonAtomic } from '../../services/stores/atomicWrite'
  *
  * 条目领域删除后，「宿主如何拿到编辑器 / 资源管理器上下文并写入工作区存储」这条
  * 教学链路由草稿箱承担：8 条右键入口（editor/context 4 + explorer/context 3 +
- * editor/title 1）全部落到 `.vscode/crud-starter.drafts.json`（B3：该路径须字面量
+ * editor/title 1）全部落到 `.vscode/ext-starter.drafts.json`（B3：该路径须字面量
  * 进 DEFAULT_DIRTY_IGNORES 与 .gitignore，否则重演「用过一次 → 分支编译自阻断」）。
  *
  * 可靠性对齐 serverStore：原子写（writeJsonAtomic）、损坏文件按空数据继续、

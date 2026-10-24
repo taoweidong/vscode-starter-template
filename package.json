@@ -2,7 +2,7 @@
   "name": "vscode-starter-template",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "publisher": "your-publisher",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -35,123 +35,123 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "crudStarter",
+          "id": "extStarter",
           "title": "%viewsContainers.title%",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "crudStarter": [
+      "extStarter": [
         {
-          "id": "crudStarter.envView",
+          "id": "extStarter.envView",
           "name": "%view.env.name%"
         },
         {
-          "id": "crudStarter.initView",
+          "id": "extStarter.initView",
           "name": "%view.init.name%"
         },
         {
-          "id": "crudStarter.buildView",
+          "id": "extStarter.buildView",
           "name": "%view.build.name%"
         },
         {
-          "id": "crudStarter.serialServersView",
+          "id": "extStarter.serialServersView",
           "name": "%view.serialServers.name%"
         }
       ]
     },
     "commands": [
       {
-        "command": "crudStarter.refreshEnvironment",
+        "command": "extStarter.refreshEnvironment",
         "title": "%command.refreshEnvironment.title%",
         "category": "%command.category%",
         "icon": "$(refresh)"
       },
       {
-        "command": "crudStarter.showEnvironmentOutput",
+        "command": "extStarter.showEnvironmentOutput",
         "title": "%command.showEnvironmentOutput.title%",
         "category": "%command.category%",
         "icon": "$(output)"
       },
       {
-        "command": "crudStarter.runAllInit",
+        "command": "extStarter.runAllInit",
         "title": "%command.runAllInit.title%",
         "category": "%command.category%",
         "icon": "$(checklist)"
       },
       {
-        "command": "crudStarter.runInitStep",
+        "command": "extStarter.runInitStep",
         "title": "%command.runInitStep.title%",
         "category": "%command.category%",
         "icon": "$(play)"
       },
       {
-        "command": "crudStarter.buildBranch",
+        "command": "extStarter.buildBranch",
         "title": "%command.buildBranch.title%",
         "category": "%command.category%",
         "icon": "$(package)"
       },
       {
-        "command": "crudStarter.openGallery",
+        "command": "extStarter.openGallery",
         "title": "%command.openGallery.title%",
         "category": "%command.category%",
         "icon": "$(library)"
       },
       {
-        "command": "crudStarter.openSerialConsole",
+        "command": "extStarter.openSerialConsole",
         "title": "%command.openSerialConsole.title%",
         "category": "%command.category%",
         "icon": "$(terminal)"
       },
       {
-        "command": "crudStarter.addSerialServer",
+        "command": "extStarter.addSerialServer",
         "title": "%command.addSerialServer.title%",
         "category": "%command.category%",
         "icon": "$(add)"
       },
       {
-        "command": "crudStarter.editSerialServer",
+        "command": "extStarter.editSerialServer",
         "title": "%command.editSerialServer.title%",
         "category": "%command.category%"
       },
       {
-        "command": "crudStarter.deleteSerialServer",
+        "command": "extStarter.deleteSerialServer",
         "title": "%command.deleteSerialServer.title%",
         "category": "%command.category%"
       },
       {
-        "command": "crudStarter.connectSerialServer",
+        "command": "extStarter.connectSerialServer",
         "title": "%command.connectSerialServer.title%",
         "category": "%command.category%",
         "icon": "$(plug)"
       },
       {
-        "command": "crudStarter.refreshSerialServers",
+        "command": "extStarter.refreshSerialServers",
         "title": "%command.refreshSerialServers.title%",
         "category": "%command.category%",
         "icon": "$(refresh)"
       },
       {
-        "command": "crudStarter.draftSelection",
+        "command": "extStarter.draftSelection",
         "title": "%command.draftSelection.title%",
         "category": "%command.category%",
         "icon": "$(symbol-string)"
       },
       {
-        "command": "crudStarter.appendDraftSelection",
+        "command": "extStarter.appendDraftSelection",
         "title": "%command.appendDraftSelection.title%",
         "category": "%command.category%",
         "icon": "$(add)"
       },
       {
-        "command": "crudStarter.draftFile",
+        "command": "extStarter.draftFile",
         "title": "%command.draftFile.title%",
         "category": "%command.category%",
         "icon": "$(new-file)"
       },
       {
-        "command": "crudStarter.draftFolder",
+        "command": "extStarter.draftFolder",
         "title": "%command.draftFolder.title%",
         "category": "%command.category%",
         "icon": "$(folder-library)"
@@ -160,125 +160,125 @@
     "menus": {
       "view/title": [
         {
-          "command": "crudStarter.refreshEnvironment",
-          "when": "view == crudStarter.envView",
+          "command": "extStarter.refreshEnvironment",
+          "when": "view == extStarter.envView",
           "group": "navigation@1"
         },
         {
-          "command": "crudStarter.showEnvironmentOutput",
-          "when": "view == crudStarter.envView",
+          "command": "extStarter.showEnvironmentOutput",
+          "when": "view == extStarter.envView",
           "group": "navigation@2"
         },
         {
-          "command": "crudStarter.runAllInit",
-          "when": "view == crudStarter.initView",
+          "command": "extStarter.runAllInit",
+          "when": "view == extStarter.initView",
           "group": "navigation@1"
         },
         {
-          "command": "crudStarter.buildBranch",
-          "when": "view == crudStarter.buildView",
+          "command": "extStarter.buildBranch",
+          "when": "view == extStarter.buildView",
           "group": "navigation@1"
         },
         {
-          "command": "crudStarter.openSerialConsole",
-          "when": "view == crudStarter.serialServersView",
+          "command": "extStarter.openSerialConsole",
+          "when": "view == extStarter.serialServersView",
           "group": "navigation@1"
         },
         {
-          "command": "crudStarter.addSerialServer",
-          "when": "view == crudStarter.serialServersView",
+          "command": "extStarter.addSerialServer",
+          "when": "view == extStarter.serialServersView",
           "group": "navigation@2"
         },
         {
-          "command": "crudStarter.refreshSerialServers",
-          "when": "view == crudStarter.serialServersView",
+          "command": "extStarter.refreshSerialServers",
+          "when": "view == extStarter.serialServersView",
           "group": "navigation@3"
         }
       ],
       "view/item/context": [
         {
-          "command": "crudStarter.runInitStep",
-          "when": "view == crudStarter.initView && viewItem == initStep",
+          "command": "extStarter.runInitStep",
+          "when": "view == extStarter.initView && viewItem == initStep",
           "group": "inline@1"
         },
         {
-          "command": "crudStarter.buildBranch",
-          "when": "view == crudStarter.buildView && viewItem == buildBranch",
+          "command": "extStarter.buildBranch",
+          "when": "view == extStarter.buildView && viewItem == buildBranch",
           "group": "inline@1"
         },
         {
-          "command": "crudStarter.connectSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "command": "extStarter.connectSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServer",
           "group": "inline@1"
         },
         {
-          "command": "crudStarter.connectSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "command": "extStarter.connectSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServerConnected",
           "group": "1_serial@1"
         },
         {
-          "command": "crudStarter.editSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "command": "extStarter.editSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServer",
           "group": "1_serial@2"
         },
         {
-          "command": "crudStarter.editSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "command": "extStarter.editSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServerConnected",
           "group": "1_serial@2"
         },
         {
-          "command": "crudStarter.deleteSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServer",
+          "command": "extStarter.deleteSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServer",
           "group": "1_serial@3"
         },
         {
-          "command": "crudStarter.deleteSerialServer",
-          "when": "view == crudStarter.serialServersView && viewItem == serialServerConnected",
+          "command": "extStarter.deleteSerialServer",
+          "when": "view == extStarter.serialServersView && viewItem == serialServerConnected",
           "group": "1_serial@3"
         }
       ],
       "editor/context": [
         {
-          "command": "crudStarter.draftSelection",
+          "command": "extStarter.draftSelection",
           "when": "editorTextFocus && editorHasSelection",
           "group": "9_starter@1"
         },
         {
-          "command": "crudStarter.appendDraftSelection",
+          "command": "extStarter.appendDraftSelection",
           "when": "editorTextFocus && editorHasSelection",
           "group": "9_starter@2"
         },
         {
-          "command": "crudStarter.draftFile",
+          "command": "extStarter.draftFile",
           "when": "editorIsOpen && !editorHasSelection",
           "group": "9_starter@3"
         },
         {
-          "command": "crudStarter.draftFile",
+          "command": "extStarter.draftFile",
           "when": "editorIsOpen && editorHasSelection",
           "group": "9_starter@4"
         }
       ],
       "explorer/context": [
         {
-          "command": "crudStarter.draftFile",
+          "command": "extStarter.draftFile",
           "when": "!explorerResourceIsFolder && !listMultiSelection",
           "group": "9_starter@1"
         },
         {
-          "command": "crudStarter.draftFile",
+          "command": "extStarter.draftFile",
           "when": "!explorerResourceIsFolder && listMultiSelection",
           "group": "9_starter@2"
         },
         {
-          "command": "crudStarter.draftFolder",
+          "command": "extStarter.draftFolder",
           "when": "explorerResourceIsFolder",
           "group": "9_starter@3"
         }
       ],
       "editor/title": [
         {
-          "command": "crudStarter.draftFile",
+          "command": "extStarter.draftFile",
           "when": "editorIsOpen",
           "group": "navigation@5"
         }
@@ -287,12 +287,12 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "crudStarter.runStartupTasks": {
+        "extStarter.runStartupTasks": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.runStartupTasks.description%"
         },
-        "crudStarter.serialConsoleEnabled": {
+        "extStarter.serialConsoleEnabled": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.serialConsoleEnabled.description%"

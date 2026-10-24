@@ -1,12 +1,12 @@
 {
-  "extension.displayName": "VSCode Extension Starter (CRUD Web Template)",
-  "extension.description": "VSCode extension starter template: env probes, init task orchestration, branch build and a serial console. Tree views + Webview pages with swappable data source.",
-  "viewsContainers.title": "CRUD Starter",
+  "extension.displayName": "VSCode Extension Starter",
+  "extension.description": "VSCode extension starter template: pluggable env probes, init task orchestration, branch build and a serial console. Tree views + Webview pages, ready to extend.",
+  "viewsContainers.title": "Extension Starter",
   "view.env.name": "Environment",
   "view.init.name": "Environment Setup",
   "view.build.name": "Branch Build",
   "view.serialServers.name": "Serial Servers",
-  "command.category": "CRUD Starter",
+  "command.category": "Extension Starter",
   "command.refreshEnvironment.title": "Refresh Environment",
   "command.showEnvironmentOutput.title": "Show Environment Output",
   "command.runAllInit.title": "Run All Init Steps",
@@ -23,7 +23,7 @@
   "command.appendDraftSelection.title": "Append Selection to Latest Draft",
   "command.draftFile.title": "Draft File",
   "command.draftFolder.title": "Draft Folder Contents",
-  "configuration.title": "CRUD Starter",
+  "configuration.title": "Extension Starter",
   "configuration.runStartupTasks.description": "Run startup tasks (environment detection) on activation. Off by default — click the refresh button in the Environment view or a single probe item to run on demand.",
   "configuration.serialConsoleEnabled.description": "Enable serial server management and the command console (server entries / command sending / live output)."
 }

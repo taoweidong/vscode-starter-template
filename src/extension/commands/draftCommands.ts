@@ -52,7 +52,7 @@ function notifyCount(count: number): void {
   void vscode.window.showInformationMessage(`草稿箱：现有 ${count} 条草稿（${STORAGE_HINT}）`)
 }
 
-const STORAGE_HINT = '数据文件 .vscode/crud-starter.drafts.json'
+const STORAGE_HINT = '数据文件 .vscode/ext-starter.drafts.json'
 
 export function registerDraftCommands(register: CommandRegistrar, deps: DraftCommandDeps): void {
   const { drafts } = deps

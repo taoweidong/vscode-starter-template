@@ -39,8 +39,8 @@ const VSCE_PROBE_TIMEOUT_MS = 30000
  */
 export const DEFAULT_DIRTY_IGNORES = [
   '.vscode/serial-servers.json',
-  '.crud-starter/',
-  '.vscode/crud-starter.drafts.json',
+  '.ext-starter/',
+  '.vscode/ext-starter.drafts.json',
 ]
 
 /** 一条待执行命令（spawn 参数数组形态，杜绝 shell 拼接注入，P0-05）。 */
@@ -220,7 +220,7 @@ export interface BuildServiceOptions {
   runCommand?: CommandRunner
   /**
    * 脏检查忽略前缀 getter（默认 DEFAULT_DIRTY_IGNORES）。
-   * R-C-4：getter 形态而非快照数组——数据文件路径跟随 crudStarter.storagePath 配置，
+   * R-C-4：getter 形态而非快照数组——数据文件路径跟随 extStarter.storagePath 配置，
    * 工作区 / 配置变化后 store 会重建，组装期快照会过期（自定义路径用户被自阻断）。
    */
   getDirtyIgnorePrefixes?: () => string[]

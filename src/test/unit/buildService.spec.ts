@@ -183,7 +183,7 @@ describe('BuildService 分支切换（check-ref-format / 脏检查 / 确认 / �
   it('脏检查忽略插件自身数据文件（P1-09）：只有自身文件变更时允许切换', async () => {
     const fake = new FakeRunner()
     programGit(fake, {
-      porcelain: ' M .vscode/serial-servers.json\n?? .crud-starter/\n',
+      porcelain: ' M .vscode/serial-servers.json\n?? .ext-starter/\n',
     })
     fake.onArgs(NPM, npmArgs('run', 'package'), 'ok')
     fake.onArgs(NPX, npxArgs('--no-install', 'vsce', '--version'), new Error('no vsce'))
@@ -375,7 +375,7 @@ describe('filterDirtyLines', () => {
   it('默认忽略自身数据文件与产物目录，其余保留', () => {
     const porcelain = [
       ' M .vscode/serial-servers.json',
-      '?? .crud-starter/',
+      '?? .ext-starter/',
       ' M src/index.ts',
       '?? other.json',
     ].join('\n')
@@ -389,7 +389,7 @@ describe('filterDirtyLines', () => {
 
   it('重命名行（old -> new）：目标或来源命中忽略前缀则忽略', () => {
     expect(filterDirtyLines('R  .vscode/serial-servers.json -> data.json')).toEqual([])
-    expect(filterDirtyLines('R  old.json -> .crud-starter/environment.json')).toEqual([])
+    expect(filterDirtyLines('R  old.json -> .ext-starter/environment.json')).toEqual([])
     expect(filterDirtyLines('R  a.ts -> b.ts')).toEqual(['R  a.ts -> b.ts'])
   })
 
@@ -398,8 +398,8 @@ describe('filterDirtyLines', () => {
       'M x.ts',
     ])
     expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/serial-servers.json')
-    expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/crud-starter.drafts.json')
-    expect(DEFAULT_DIRTY_IGNORES).toContain('.crud-starter/')
+    expect(DEFAULT_DIRTY_IGNORES).toContain('.vscode/ext-starter.drafts.json')
+    expect(DEFAULT_DIRTY_IGNORES).toContain('.ext-starter/')
   })
 })
 

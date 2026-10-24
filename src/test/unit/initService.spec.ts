@@ -178,7 +178,7 @@ describe('createInitSteps：envSnapshot 快照复用', () => {
     expect(message).toContain('2/2')
     // 快照内容来自注入结果
     const snapshot = JSON.parse(
-      nodeFs.readFileSync(nodePath.join(rootDir, '.crud-starter', 'environment.json'), 'utf8')
+      nodeFs.readFileSync(nodePath.join(rootDir, '.ext-starter', 'environment.json'), 'utf8')
     ) as { items: { name: string }[] }
     expect(snapshot.items.map((item) => item.name)).toEqual(['Python', 'Node.js'])
   })
@@ -188,7 +188,7 @@ describe('createInitSteps：envSnapshot 快照复用', () => {
     expect(message).not.toContain('复用')
     expect(message).toMatch(/快照已写入（\d+\/\d+ 项就绪）/)
     const snapshot = JSON.parse(
-      nodeFs.readFileSync(nodePath.join(rootDir, '.crud-starter', 'environment.json'), 'utf8')
+      nodeFs.readFileSync(nodePath.join(rootDir, '.ext-starter', 'environment.json'), 'utf8')
     ) as { items: { name: string; status?: string }[] }
     expect(snapshot.items.some((item) => item.name === 'Node.js' && item.status === 'ok')).toBe(
       true

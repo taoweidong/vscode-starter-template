@@ -5,15 +5,15 @@
  */
 export const VIEW = {
   /** ActivityBar 视图容器 ID */
-  containerId: 'crudStarter',
+  containerId: 'extStarter',
   /** 环境信息树视图 ID */
-  envViewId: 'crudStarter.envView',
+  envViewId: 'extStarter.envView',
   /** 环境初始化视图 ID */
-  initViewId: 'crudStarter.initView',
+  initViewId: 'extStarter.initView',
   /** 分支编译视图 ID */
-  buildViewId: 'crudStarter.buildView',
+  buildViewId: 'extStarter.buildView',
   /** 串口服务器树视图 ID */
-  serialServersViewId: 'crudStarter.serialServersView',
+  serialServersViewId: 'extStarter.serialServersView',
   /** 串口服务器树条目的 contextValue（未连接） */
   serialServerContextValue: 'serialServer',
   /** 串口服务器树条目的 contextValue（已连接，图标/菜单可区分） */
@@ -27,56 +27,56 @@ export const VIEW = {
 export const COMMAND = {
   // 启动任务 / 环境信息
   /** 环境信息视图标题栏：重新执行启动任务 */
-  refreshEnvironment: 'crudStarter.refreshEnvironment',
+  refreshEnvironment: 'extStarter.refreshEnvironment',
   /** 打开启动任务的输出通道 */
-  showEnvironmentOutput: 'crudStarter.showEnvironmentOutput',
+  showEnvironmentOutput: 'extStarter.showEnvironmentOutput',
 
   // 环境初始化
   /** 环境初始化：执行全部步骤 */
-  runAllInit: 'crudStarter.runAllInit',
+  runAllInit: 'extStarter.runAllInit',
   /** 环境初始化：执行单个步骤（树条目单击 / inline 按钮） */
-  runInitStep: 'crudStarter.runInitStep',
+  runInitStep: 'extStarter.runInitStep',
 
   // 分支编译
   /** 分支编译：选择分支并编译出包（树条目单击 / inline 按钮 / 标题栏） */
-  buildBranch: 'crudStarter.buildBranch',
+  buildBranch: 'extStarter.buildBranch',
 
   // Webview 页面（Vue 3）
   /** 打开组件画廊（开发用：设计系统视觉验收基准） */
-  openGallery: 'crudStarter.openGallery',
+  openGallery: 'extStarter.openGallery',
   /** 打开串口控制台页面（命令面板 / 视图标题栏） */
-  openSerialConsole: 'crudStarter.openSerialConsole',
+  openSerialConsole: 'extStarter.openSerialConsole',
 
   // 串口命令控制台
   /** 新增串口服务器（打开控制台页面表单） */
-  addSerialServer: 'crudStarter.addSerialServer',
+  addSerialServer: 'extStarter.addSerialServer',
   /** 编辑串口服务器（打开控制台页面并预选） */
-  editSerialServer: 'crudStarter.editSerialServer',
+  editSerialServer: 'extStarter.editSerialServer',
   /** 删除串口服务器（树右键；模态确认 + 清理密码） */
-  deleteSerialServer: 'crudStarter.deleteSerialServer',
+  deleteSerialServer: 'extStarter.deleteSerialServer',
   /** 连接串口服务器并打开控制台（树条目单击 / inline 按钮） */
-  connectSerialServer: 'crudStarter.connectSerialServer',
+  connectSerialServer: 'extStarter.connectSerialServer',
   /** 刷新串口服务器树视图 */
-  refreshSerialServers: 'crudStarter.refreshSerialServers',
+  refreshSerialServers: 'extStarter.refreshSerialServers',
 
   // 草稿箱（右键示例新载体，09 方案 §3.5；8 条右键入口 = editor/context 4 + explorer/context 3 + editor/title 1）
   /** 编辑器右键：登记选中文本到草稿箱 */
-  draftSelection: 'crudStarter.draftSelection',
+  draftSelection: 'extStarter.draftSelection',
   /** 编辑器右键：追加选中文本到最近一条草稿 */
-  appendDraftSelection: 'crudStarter.appendDraftSelection',
+  appendDraftSelection: 'extStarter.appendDraftSelection',
   /** 资源管理器右键 / 编辑器右键与标题栏：登记文件（支持多选批量） */
-  draftFile: 'crudStarter.draftFile',
+  draftFile: 'extStarter.draftFile',
   /** 资源管理器右键：登记文件夹内容为草稿 */
-  draftFolder: 'crudStarter.draftFolder',
+  draftFolder: 'extStarter.draftFolder',
 } as const
 
 /**
- * 配置项键名（对应设置里的 crudStarter.*）。
+ * 配置项键名（对应设置里的 extStarter.*）。
  * 09 方案阶段 2：storagePath 与 6 个 features.* 特性开关随领域删除，
  * serialConsole 开关平铺为普通配置项（S1），配置 8 → 2。
  */
 export const CONFIG = {
-  section: 'crudStarter',
+  section: 'extStarter',
   /** 激活时是否自动执行启动任务 */
   runStartupTasks: 'runStartupTasks',
   /** 串口控制台开关（特性开关体系退场后平铺，09 §3.4/S1） */
@@ -89,15 +89,15 @@ export const CONFIG = {
  */
 export const STORAGE = {
   /** 串口服务器：未打开工作区时，globalState 的存储键 */
-  serialServersMementoKey: 'crudStarter.serialServers',
+  serialServersMementoKey: 'extStarter.serialServers',
   /** 串口命令历史（全局共享、自动去重）：globalState 的存储键 */
-  serialCommandHistoryKey: 'crudStarter.serialCommandHistory',
+  serialCommandHistoryKey: 'extStarter.serialCommandHistory',
   /** 串口服务器登录密码的 SecretStorage 键前缀（完整键为 `<前缀><服务器id>.password`） */
-  serialServerSecretPrefix: 'crudStarter.serialServer.',
+  serialServerSecretPrefix: 'extStarter.serialServer.',
   /**
    * 草稿箱数据文件（相对工作区根）。
    * B3：该路径必须以字面量同步进 buildService 的 DEFAULT_DIRTY_IGNORES 与 .gitignore
    * （脏检查匹配无 glob）；阶段 5 改名时三处一起换。
    */
-  draftsFileName: '.vscode/crud-starter.drafts.json',
+  draftsFileName: '.vscode/ext-starter.drafts.json',
 } as const

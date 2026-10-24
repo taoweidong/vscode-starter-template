@@ -12,7 +12,7 @@ import type { CommandRegistrar } from './shared'
  * 打开页面并（可能）预选目标；删除在树侧落库（controller.deleteServer）。
  *
  * 09 方案阶段 2（S1/S3）：特性开关体系退场——
- * - S1：serialConsole 开关改为普通配置项 crudStarter.serialConsoleEnabled；
+ * - S1：serialConsole 开关改为普通配置项 extStarter.serialConsoleEnabled；
  * - S3：删除确认不再读 confirmDelete 开关，一律模态确认。
  */
 
@@ -28,7 +28,7 @@ export function registerSerialConsoleCommands(
 ): void {
   const { controller } = deps
 
-  /** 开关关闭时命令给出可操作提示（设置项 crudStarter.serialConsoleEnabled）。 */
+  /** 开关关闭时命令给出可操作提示（设置项 extStarter.serialConsoleEnabled）。 */
   const isEnabled = (): boolean =>
     vscode.workspace
       .getConfiguration(CONFIG.section)
@@ -39,7 +39,7 @@ export function registerSerialConsoleCommands(
     (...args: TArgs) => {
       if (!isEnabled()) {
         void vscode.window.showInformationMessage(
-          '串口控制台功能已关闭：可在设置（crudStarter.serialConsoleEnabled）中开启。'
+          '串口控制台功能已关闭：可在设置（extStarter.serialConsoleEnabled）中开启。'
         )
         return
       }

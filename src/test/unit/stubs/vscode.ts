@@ -182,28 +182,44 @@ interface ConfigurationLike {
   inspect(section: string): unknown
 }
 
-/** 配置存储：section → key → value（模拟用户 / 工作区设置合并结果）。 */
+/**
+ * 配置存储：section → key → value，分「用户（全局）」与「工作区」两层，
+ * 模拟 VSCode 的合并语义：get 工作区优先；inspect 同时报告两个作用域。
+ */
 const configStore = new Map<string, Map<string, unknown>>()
+const workspaceConfigStore = new Map<string, Map<string, unknown>>()
+
+function storeFor(target?: ConfigurationTarget): Map<string, Map<string, unknown>> {
+  return target === ConfigurationTarget.Workspace ? workspaceConfigStore : configStore
+}
 
 function makeConfiguration(section: string): ConfigurationLike {
   return {
     get<T>(key: string, defaultValue?: T): T {
-      const value = configStore.get(section)?.get(key)
+      const value =
+        workspaceConfigStore.get(section)?.get(key) ?? configStore.get(section)?.get(key)
       return (value === undefined ? defaultValue : value) as T
     },
-    async update(key: string, value: unknown, _target?: ConfigurationTarget): Promise<void> {
+    async update(key: string, value: unknown, target?: ConfigurationTarget): Promise<void> {
       __record('configUpdate', { section, key, value })
-      if (!configStore.has(section)) {
-        configStore.set(section, new Map())
+      const store = storeFor(target)
+      if (!store.has(section)) {
+        store.set(section, new Map())
       }
-      configStore.get(section)!.set(key, value)
+      store.get(section)!.set(key, value)
       fireConfigChange(`${section}.${key}`)
     },
     has(key: string): boolean {
-      return configStore.get(section)?.has(key) ?? false
+      return (
+        workspaceConfigStore.get(section)?.has(key) ?? configStore.get(section)?.has(key) ?? false
+      )
     },
     inspect(key: string): unknown {
-      return { key: `${section}.${key}`, globalValue: configStore.get(section)?.get(key) }
+      return {
+        key: `${section}.${key}`,
+        globalValue: configStore.get(section)?.get(key),
+        workspaceValue: workspaceConfigStore.get(section)?.get(key),
+      }
     },
   }
 }
@@ -223,7 +239,7 @@ function fireConfigChange(fullKey: string): void {
   }
 }
 
-/** 测试入口：模拟某个配置键发生变化（fullKey 形如 'crudStarter.storagePath'）。 */
+/** 测试入口：模拟某个配置键发生变化（fullKey 形如 'extStarter.storagePath'）。 */
 export function __fireConfigurationChange(fullKey: string): void {
   fireConfigChange(fullKey)
 }
@@ -286,6 +302,7 @@ export function __resetStubs(options?: { keepWorkspaceFolders?: boolean }): void
   __stubs.registeredSerializers.clear()
   __stubs.clipboard = ''
   configStore.clear()
+  workspaceConfigStore.clear()
   configChangeListeners.clear()
   workspaceFoldersListeners.clear()
   if (!options?.keepWorkspaceFolders) {

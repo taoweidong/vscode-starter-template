@@ -74,6 +74,32 @@ export function passwordKey(serverId: string): string {
   return `${STORAGE.serialServerSecretPrefix}${serverId}${PASSWORD_KEY_SUFFIX}`
 }
 
+/**
+ * 旧前缀（v0.7.0，09 方案阶段 5 改名前的 SecretStorage 键）。
+ * SecretStorage 无法枚举，密码迁移采用惰性搬迁：读新键未命中时读旧键，
+ * 命中则写新键、删旧键并返回（下次起走新键）。
+ */
+const LEGACY_SECRET_PREFIX = 'crudStarter.serialServer.'
+
+async function getPasswordWithMigration(
+  secrets: SecretStorageLike,
+  serverId: string
+): Promise<string | undefined> {
+  const key = passwordKey(serverId)
+  const current = await secrets.get(key)
+  if (current !== undefined) {
+    return current
+  }
+  const legacyKey = `${LEGACY_SECRET_PREFIX}${serverId}${PASSWORD_KEY_SUFFIX}`
+  const legacy = await secrets.get(legacyKey)
+  if (legacy === undefined) {
+    return undefined
+  }
+  await secrets.store(key, legacy)
+  await secrets.delete(legacyKey)
+  return legacy
+}
+
 function reasonOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -147,7 +173,7 @@ export function createSerialConsoleDeps(
   /** 自动登录：连接后按序发送用户名 / 密码（凭据不经命令历史，不回显到日志）。 */
   async function maybeAutoLogin(server: SerialServer): Promise<void> {
     if (!server.autoLogin || server.username.length === 0) return
-    const password = await services.secrets.get(passwordKey(server.id))
+    const password = await getPasswordWithMigration(services.secrets, server.id)
     if (!password) {
       await post({
         type: 'error',

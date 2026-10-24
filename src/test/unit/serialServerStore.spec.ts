@@ -144,9 +144,9 @@ describe('串口服务器存储', () => {
 
   it('MementoStore：非数组按空数据 + onWarning；save→load 往返一致', async () => {
     const memento = createMementoStub()
-    memento.update('crudStarter.serialServers', 'not-an-array')
+    memento.update('extStarter.serialServers', 'not-an-array')
     const warnings: string[] = []
-    const store = new MementoServerStore(memento, 'crudStarter.serialServers', {
+    const store = new MementoServerStore(memento, 'extStarter.serialServers', {
       onWarning: (m) => warnings.push(m),
     })
     expect(await store.load()).toEqual([])

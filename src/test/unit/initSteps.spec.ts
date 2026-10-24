@@ -43,14 +43,14 @@ describe('createInitSteps 步骤注册表', () => {
     ).rejects.toThrow('未打开工作区')
   })
 
-  it('artifactDir：创建 .crud-starter/ 目录（幂等）', async () => {
+  it('artifactDir：创建 .ext-starter/ 目录（幂等）', async () => {
     const step = createInitSteps()[1]
     const message = await step.run({
       workspaceRoot: vscode.Uri.file(rootDir),
       output: undefined as unknown as vscode.OutputChannel,
     })
     expect(message).toContain('目录就绪')
-    expect(nodeFs.existsSync(nodePath.join(rootDir, '.crud-starter'))).toBe(true)
+    expect(nodeFs.existsSync(nodePath.join(rootDir, '.ext-starter'))).toBe(true)
     // 重复执行不抛错（createDirectory recursive 语义）
     await expect(
       step.run({

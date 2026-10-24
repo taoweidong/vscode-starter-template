@@ -24,7 +24,8 @@ export default tseslint.config(
       'test-results/**',
       '.zcode/**',
       '.ai-memory/**',
-      '.crud-starter/**',
+      '.ext-starter/**',
+      '.vscode/*.json', // 扩展运行时数据文件（非源码）
     ],
   },
   js.configs.recommended,
