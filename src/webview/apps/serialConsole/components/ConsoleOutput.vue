@@ -115,11 +115,11 @@ watch(
 
 .console-output__scroll {
   flex: 1;
-  min-height: 160px;
+  min-height: var(--ui-console-output-min-height);
   overflow: auto;
   border: 1px solid var(--ui-border);
   background: var(--ui-bg);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   padding: var(--ui-space-2);
 }
 

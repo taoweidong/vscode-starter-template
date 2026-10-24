@@ -120,7 +120,7 @@ function pickPort(path: string): void {
 .server-form__chip {
   padding: 2px var(--ui-space-2);
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   background: var(--ui-surface);
   color: var(--ui-link);
   font-family: var(--ui-font);

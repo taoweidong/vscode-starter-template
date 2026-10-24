@@ -7,6 +7,10 @@ import {
 /** serialport 流式 API 的最小替身（构造即模拟 autoOpen 异步 open；记录构造参数）。 */
 class FakeSerialPortStream {
   static lastOptions: Record<string, unknown> | undefined
+  /** v12：list 为 SerialPort 的静态方法（模块级不导出 list）。 */
+  static async list(): Promise<{ path: string }[]> {
+    return [{ path: 'COM3' }]
+  }
 
   readonly options: Record<string, unknown>
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>()
@@ -35,7 +39,7 @@ class FakeSerialPortStream {
 function loaderOf(
   streamClass: new (options: Record<string, unknown>) => unknown
 ): SerialPortModuleLoader {
-  return () => ({ SerialPort: streamClass, list: async () => [{ path: 'COM3' }] }) as never
+  return () => ({ SerialPort: streamClass }) as never
 }
 
 describe('createNodeSerialPortFactory（注入 loader，不加载原生模块）', () => {

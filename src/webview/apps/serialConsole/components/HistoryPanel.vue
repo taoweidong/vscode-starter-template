@@ -137,10 +137,10 @@ function onClear(): void {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 180px;
+  max-height: var(--ui-history-max-height);
   overflow: auto;
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
 }
 
 .history-panel__row {

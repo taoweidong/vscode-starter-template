@@ -124,7 +124,7 @@ function onDelete(id: string): void {
   gap: var(--ui-space-2);
   padding: var(--ui-space-2);
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   cursor: pointer;
 }
 
@@ -137,8 +137,8 @@ function onDelete(id: string): void {
 }
 
 .server-list__status {
-  width: 8px;
-  height: 8px;
+  width: var(--ui-status-dot-size);
+  height: var(--ui-status-dot-size);
   border-radius: 50%;
   background: var(--ui-fg-disabled);
   flex: none;

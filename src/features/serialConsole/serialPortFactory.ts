@@ -52,10 +52,15 @@ export class SerialPortUnavailableError extends Error {
   }
 }
 
+/** serialport 的 SerialPort 构造器结构面：实例方法 + v12 的静态 list（模块级不导出 list）。 */
+interface SerialPortCtor {
+  new (options: Record<string, unknown>): SerialPortStreamLike
+  list(): Promise<SerialPortInfoLike[]>
+}
+
 /** serialport 模块的最小结构面（类型本地声明，避免静态 import 原生包）。 */
 interface SerialPortModule {
-  SerialPort: new (options: Record<string, unknown>) => SerialPortStreamLike
-  list(): Promise<SerialPortInfoLike[]>
+  SerialPort: SerialPortCtor
 }
 
 interface SerialPortStreamLike {
@@ -82,7 +87,7 @@ export function createNodeSerialPortFactory(
 ): SerialPortFactory {
   return {
     async list(): Promise<SerialPortInfoLike[]> {
-      return loadModule().list()
+      return loadModule().SerialPort.list()
     },
 
     async open(options: SerialPortOpenOptions): Promise<SerialPortLike> {

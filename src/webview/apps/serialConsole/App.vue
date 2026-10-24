@@ -331,7 +331,7 @@ watch(
 }
 
 .console__side {
-  width: 320px;
+  width: var(--ui-console-side-width);
   flex: none;
   display: flex;
   flex-direction: column;
@@ -340,7 +340,7 @@ watch(
 
 .console__side-section {
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   padding: var(--ui-space-3);
 }
 

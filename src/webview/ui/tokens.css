@@ -98,6 +98,11 @@
   --ui-shell-width-settings: 720px; /* AppShell width=settings */
   --ui-shell-width-wizard: 960px; /* AppShell width=wizard */
   --ui-file-list-max-height: 320px; /* 导入向导文件列表滚动区最大高 */
+  /* 串口控制台（serialConsole）页面布局规格登记 */
+  --ui-console-side-width: 320px; /* 左栏（服务器管理）宽度 */
+  --ui-console-output-min-height: 160px; /* 控制台输出区最小高度 */
+  --ui-history-max-height: 180px; /* 历史命令列表滚动区最大高 */
+  --ui-status-dot-size: 8px; /* 服务器列表状态圆点尺寸 */
 }
 
 /* 页面基础样式：正文 13px、行高 1.5、背景透明跟随宿主 */

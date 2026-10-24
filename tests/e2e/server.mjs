@@ -48,6 +48,7 @@ const PAGE_ENTRY_PATHS = {
   featureConfig: 'src/webview/apps/featureConfig/main.ts',
   importWizard: 'src/webview/apps/importWizard/main.ts',
   gallery: 'src/webview/apps/gallery/main.ts',
+  serialConsole: 'src/webview/apps/serialConsole/main.ts',
 }
 
 const MIME_TYPES = {
