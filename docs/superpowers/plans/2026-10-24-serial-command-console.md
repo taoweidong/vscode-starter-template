@@ -32,6 +32,7 @@
 ## T2 数据模型 + SerialServerStore
 
 **Files**
+
 - Create `src/features/serialConsole/models.ts`（SerialServer/SerialServerDraft + 类型守卫）
 - Create `src/services/stores/atomicWrite.ts`（从 jsonFileStore.ts 抽取原子写：临时文件→读回比对→rename）
 - Modify `src/services/stores/jsonFileStore.ts`（改用共享 atomicWrite，行为不变）
@@ -39,10 +40,12 @@
 - Test `src/test/unit/features/serialConsole/serverStore.spec.ts`、`src/test/unit/services/stores/atomicWrite.spec.ts`
 
 **Interfaces（Produces）**
+
 - `createServerStores(context, workspaceRoot?): { load(): Promise<SerialServer[]>; save(servers: SerialServer[]): Promise<void>; onDidChange(cb): Disposable }`
 - `writeJsonAtomic(filePath: string, data: unknown): Promise<void>`
 
 **Steps**
+
 - [ ] 测试先行：atomicWrite（覆盖/新建/写失败保留原文件）→ 红
 - [ ] 实现 atomicWrite 并让 jsonFileStore 复用，跑既有 jsonFileStore 测试确认绿
 - [ ] 测试先行：serverStore（空载/保存往返/信封版本/损坏文件回退空+错误回调）→ 红
@@ -51,68 +54,81 @@
 ## T3 CommandHistoryService
 
 **Files**
+
 - Create `src/features/serialConsole/commandHistoryService.ts`
 - Test `src/test/unit/features/serialConsole/commandHistoryService.spec.ts`
 
 **Interfaces（Produces）**
+
 - `createCommandHistoryService(memento: Memento): { record(cmd): Promise<HistoryEntry[]>; list(): Promise<HistoryEntry[]>; remove(id): Promise<HistoryEntry[]>; clear(): Promise<void> }`
 - `HistoryEntry { id: string; command: string; lastUsedAt: number; useCount: number }`
 
 **Steps**
+
 - [ ] 测试先行：空白不入库 / 新命令置顶 / 重复 MRU 置顶+useCount+1 / 上限 200 淘汰最旧 / remove / clear → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T4 SerialPortFactory + SerialLinkService
 
 **Files**
+
 - Create `src/features/serialConsole/serialPortFactory.ts`（接口 + 惰性 require 生产实现 + FakeFactory 导出供测试）
 - Create `src/features/serialConsole/serialLinkService.ts`
 - Test `src/test/unit/features/serialConsole/serialLinkService.spec.ts`
 
 **Interfaces（Produces）**
+
 - `interface SerialPortLike { write(data: string): void; close(cb?): void; on(event, cb): void }`
 - `interface SerialPortFactory { list(): Promise<{ path: string }[]>; open(opts): Promise<SerialPortLike> }`
 - `createSerialLinkService(factory, hooks: { onData(text,seq), onState(state,error?) }): { connect(server): Promise<void>; send(cmd): void; disconnect(): void; state(): LinkState }`
 
 **Steps**
+
 - [ ] 测试先行（FakeFactory）：open 成功→connected / open 拒绝→error 且可重连 / data 批处理合并（fake timers）/ send 追加 lineEnding / close 幂等 / 连接中 disconnect → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T5 协议扩展
 
 **Files**
+
 - Modify `src/webview/protocol.ts`（追加 §设计 5.4 分支 + 守卫 case）
 - Test 修改 `src/test/unit/webview/protocol.spec.ts`（表驱动：合法/缺字段/多字段/类型错）
 
 **Steps**
+
 - [ ] 测试先行：新增 15 个分支的守卫正反例 → 红
 - [ ] 实现分支与守卫 → 绿，覆盖率 100% → 提交
 
 ## T6 SERVER_FIELD_DEFS + deriveFormSchema 泛化
 
 **Files**
+
 - Create `src/features/serialConsole/serverSchema.ts`（SERVER_FIELD_DEFS：name/serialPath/baudRate/dataBits/stopBits/parity/flowControl/lineEnding/autoLogin/username/password/description）
 - Modify `src/webview/formSchema.ts`（`deriveFormSchema(defs)` 参数化；导出保持 FORM_SCHEMA 兼容）
 - Test `src/test/unit/webview/formSchema.spec.ts`（追加：item 输出回归快照 + server 派生）
 
 **Steps**
+
 - [ ] 测试先行：item 派生结果与现输出一致（回归锁定）→ 红（泛化前无法注入 defs）
 - [ ] 泛化 + server 派生 → 绿 → 提交
 
 ## T7 serialConsolePanel 消息编排
 
 **Files**
+
 - Create `src/features/serialConsole/serialConsolePanel.ts`（configure/open；onPageMessage 处理 10 类页面消息；保存剥离密码→SecretStorage；自动登录时序）
 - Create `src/features/serialConsole/serialConsoleController.ts`（面板+链路+历史+store 的组装与生命周期）
 - Test `src/test/unit/features/serialConsole/serialConsolePanel.spec.ts`（fakePanel + stub SecretStorage/Memento）
 
 **Steps**
+
 - [ ] 测试先行：serversRequest→serialServers / save（密码剥离、留空保持）/ delete / connect→state 推送 / send→link+history.record / dispose 断开 → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T8 树视图 + 命令 + 清单 + feature flag
 
 **Files**
+
 - Create `src/features/serialConsole/serialServersTreeProvider.ts`
 - Create `src/commands/serialConsoleCommands.ts`
 - Modify `src/constants.ts`（COMMAND 6 项 / VIEW.serialServersViewId / STORAGE 2 key / FEATURES）
@@ -123,6 +139,7 @@
 - Test `src/test/unit/features/serialConsole/serialServersTreeProvider.spec.ts`、命令注册单测
 
 **Steps**
+
 - [ ] 测试先行：树 provider（空态/列表/状态徽标 contextValue）→ 红
 - [ ] 实现 provider + 命令组 + 清单 + extension 组装 → 绿
 - [ ] `npx tsx scripts/checks/manifest.ts`（或跑 gate 静态步）通过 → 提交
@@ -130,6 +147,7 @@
 ## T9 Webview 页面骨架 + 服务器管理 UI
 
 **Files**
+
 - Modify `src/webview/pages.ts`（+serialConsole）
 - Create `src/webview/apps/serialConsole/main.ts`、`App.vue`
 - Create `src/webview/composables/useConsolePage.ts`（消息监听/请求封装）
@@ -138,38 +156,45 @@
 - Test `src/test/unit/webview/serialConsoleApp.spec.ts`（appTestUtils）
 
 **Steps**
+
 - [ ] 测试先行：init 渲染服务器列表 / 表单校验错误显示 / 保存消息载荷正确 / 检测串口 chips 填充 → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T10 控制台 UI
 
 **Files**
+
 - Create `src/webview/apps/serialConsole/components/ConsoleOutput.vue`（流式/自动滚动可暂停/5000 行裁剪/清空）
 - Create `src/webview/apps/serialConsole/components/CommandInput.vue`（Enter 发送/↑↓ 历史）
 - Modify `App.vue`（右栏组装 + serialData/serialState 消费）
 
 **Steps**
+
 - [ ] 测试先行：serialData 追加渲染 / 暂停滚动开关 / 清空 / 状态条随 serialState 变化 / 发送触发 serialSend 且本地回显 → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T11 历史命令 UI
 
 **Files**
+
 - Create `src/webview/apps/serialConsole/components/HistoryPanel.vue`（搜索/MRU 列表/单击填入/双击发送/删除/清空）
 
 **Steps**
+
 - [ ] 测试先行：列表按 lastUsedAt 排序 / 搜索过滤 / 单击 emit fill / 双击 emit send / 删除与清空消息 → 红
 - [ ] 实现 → 绿 → 提交
 
 ## T12 打包链路适配
 
 **Files**
+
 - Modify `package.json`（dependencies.serialport ^12.0.0；package:vsix 去 --no-dependencies）
 - Modify `scripts/build-extension.ts`（external + serialport）
 - Modify `.vscodeignore`（node_modules 否定项）
 - Modify `scripts/gate.ts`（第 9 步：vsce ls 去 flag、must-have + *.node、vsix 体积预算）
 
 **Steps**
+
 - [ ] `npm install serialport@^12.0.0` 并确认 prebuild 落盘（node_modules/@serialport/bindings-cpp/prebuilds）
 - [ ] 构建宿主 bundle 体积仍 < 150KB
 - [ ] `vsce ls` 清单核对 serialport 运行时文件在列；gate 第 9 步更新后通过 → 提交
@@ -177,10 +202,12 @@
 ## T13 E2E + 门禁 + 文档
 
 **Files**
+
 - Create `tests/e2e/serialConsole.spec.ts`（harness 伪造宿主：init/serialData 流/发送/历史交互）
 - Modify `README.md`（架构图与功能清单 + serialport 依赖说明）
 
 **Steps**
+
 - [ ] E2E 用例（页面加载/发送回流/历史去重展示）绿
 - [ ] `npm run gate -- --with-e2e` 10 步全绿
 - [ ] README 更新 → 最终提交
