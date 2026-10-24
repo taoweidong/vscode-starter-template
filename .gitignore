@@ -9,6 +9,11 @@ out/
 
 # 插件自身开发时产生的数据文件（T5.4 / P1-09：脏检查亦默认忽略）
 .vscode/crud-starter-items.json
+# 运行时数据文件（09 方案阶段 0：静态配置默认文件 + 串口服务器清单）
+.vscode/crud-starter.config.json
+.vscode/serial-servers.json
+# 草稿箱数据文件（09 方案 §3.5/B3：右键示例新载体，前缀改名前后均覆盖）
+.vscode/*.drafts.json
 
 # 测试与覆盖率产物（M6：vitest coverage / Playwright）
 coverage/
