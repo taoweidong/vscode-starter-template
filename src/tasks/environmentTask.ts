@@ -1,6 +1,7 @@
 import { exec } from 'child_process'
 import * as os from 'os'
 import * as vscode from 'vscode'
+import { ENVIRONMENT_PROBES, findProbeByLabel, type EnvironmentProbe } from './probes'
 import type { StartupTask, TaskContext, TaskItem, TaskResult, TaskStatus } from './types'
 
 const PROBE_TIMEOUT_MS = 8000
@@ -31,7 +32,7 @@ function firstLine(value: string): string {
  * 执行一条探测命令并返回其输出的首行；失败或无输出返回空串（不抛错）。
  * E6 修正：**err 非空时一律视为失败**——不再「stdout 有内容即成功」
  * （打印帮助文本后退出的失败命令不能被当成功）；仅退出码为 0 时才接受 stderr
- * （兼容旧版 Python 把 --version 输出到 stderr 的行为）。
+ * （兼容旧版 Python 把 --version 输出到 stderr 的行为，Java -version 同理）。
  */
 async function execCapture(executor: ProbeExecutor, command: string): Promise<string> {
   const { err, stdout, stderr } = await executor(command, PROBE_TIMEOUT_MS)
@@ -51,7 +52,7 @@ async function execCapture(executor: ProbeExecutor, command: string): Promise<st
 /** 依序尝试一组候选命令（fallback 链），返回首个有输出版本号的结果。 */
 async function probeVersion(
   executor: ProbeExecutor,
-  commands: string[],
+  commands: readonly string[],
   signal?: TaskContext['signal']
 ): Promise<{ version: string; command?: string }> {
   for (const command of commands) {
@@ -67,9 +68,47 @@ async function probeVersion(
 }
 
 /**
+ * 单个探针 → 树条目（09 方案 §6.1：探针注册表驱动的通用执行路径）。
+ * 单探针失败只影响自身条目（missing），不阻塞其他探针。
+ */
+async function probeToItem(
+  executor: ProbeExecutor,
+  probe: EnvironmentProbe,
+  signal?: TaskContext['signal']
+): Promise<TaskItem> {
+  const hit = await probeVersion(executor, probe.commands, signal)
+  if (hit.version) {
+    return {
+      label: probe.label,
+      description: probe.parse ? probe.parse(hit.version) : hit.version,
+      tooltip: `检测命令：${hit.command ?? ''}（点击重新检测）`,
+      status: 'ok',
+    }
+  }
+  return {
+    label: probe.label,
+    description: '未检测到',
+    tooltip: `${probe.missingHint ?? `已尝试：${probe.commands.join('、')}`}（点击重新检测）`,
+    status: 'missing',
+  }
+}
+
+/** 与环境探测无关的系统信息条目（操作系统 / VSCode 宿主）。 */
+function systemItems(): TaskItem[] {
+  return [
+    {
+      label: '操作系统',
+      description: `${os.type()} ${os.release()}（${process.arch}）`,
+      status: 'ok',
+    },
+    { label: 'VSCode', description: `${vscode.env.appName} ${vscode.version}`, status: 'ok' },
+  ]
+}
+
+/**
  * 构造环境检测任务（executor 可注入，默认真实探测）。
- * 探测 Python / Node / npm / Git 版本与系统、VSCode 信息；
- * Python 按 py -3 → python → python3 的顺序回退（覆盖 Windows 常见安装形态）。
+ * 09 方案阶段 3：从硬编码六项改为「遍历 ENVIRONMENT_PROBES 注册表 + 2 系统项」，
+ * 新增一种语言检测只需在 probes.ts 加一条数据。
  */
 export function createEnvironmentTask(executor: ProbeExecutor = defaultExecutor): StartupTask {
   const task: StartupTask = {
@@ -82,61 +121,10 @@ export function createEnvironmentTask(executor: ProbeExecutor = defaultExecutor)
       const items: TaskItem[] = []
       const cancelled = () => ctx.signal.isCancellationRequested
 
-      // ---- Python（带 fallback 链）----
-      const pyCandidates = ['py -3 --version', 'python --version', 'python3 --version']
-      const py = await probeVersion(executor, pyCandidates, ctx.signal)
-      items.push(
-        py.version
-          ? {
-              label: 'Python',
-              description: py.version.replace(/^Python\s*/i, ''),
-              tooltip: `检测命令：${py.command ?? ''}`,
-              status: 'ok',
-            }
-          : {
-              label: 'Python',
-              description: '未检测到',
-              tooltip: `已尝试：${pyCandidates.join('、')}`,
-              status: 'missing',
-            }
-      )
-
-      // ---- Node.js / npm ----
-      const node = await probeVersion(executor, ['node --version'], ctx.signal)
-      items.push(
-        node.version
-          ? { label: 'Node.js', description: node.version, status: 'ok' }
-          : { label: 'Node.js', description: '未检测到', status: 'missing' }
-      )
-
-      const npm = await probeVersion(executor, ['npm --version'], ctx.signal)
-      items.push(
-        npm.version
-          ? { label: 'npm', description: npm.version, status: 'ok' }
-          : { label: 'npm', description: '未检测到', status: 'missing' }
-      )
-
-      // ---- Git ----
-      const git = await probeVersion(executor, ['git --version'], ctx.signal)
-      items.push(
-        git.version
-          ? { label: 'Git', description: git.version.replace(/^git\s*/i, ''), status: 'ok' }
-          : { label: 'Git', description: '未检测到', status: 'missing' }
-      )
-
-      // ---- 操作系统 ----
-      items.push({
-        label: '操作系统',
-        description: `${os.type()} ${os.release()}（${process.arch}）`,
-        status: 'ok',
-      })
-
-      // ---- VSCode 宿主 ----
-      items.push({
-        label: 'VSCode',
-        description: `${vscode.env.appName} ${vscode.version}`,
-        status: 'ok',
-      })
+      for (const probe of ENVIRONMENT_PROBES) {
+        items.push(await probeToItem(executor, probe, ctx.signal))
+      }
+      items.push(...systemItems())
 
       // ---- 汇总状态：全部就绪 → ok；有缺失 → warn；执行中被取消 → warn + 说明 ----
       const missing = items.filter((item) => item.status !== 'ok').length
@@ -158,6 +146,18 @@ export function createEnvironmentTask(executor: ProbeExecutor = defaultExecutor)
 
 /** 内置启动任务：环境检测（注册表默认项，executor 为真实探测）。 */
 export const environmentTask: StartupTask = createEnvironmentTask()
+
+/**
+ * 单探针重检（09 方案 §6.1：树节点单击「重新检测此项」）。
+ * 按条目 label 路由到探针；label 不属于任何探针（如操作系统 / VSCode）返回 undefined。
+ */
+export async function recheckProbeByLabel(
+  label: string,
+  executor: ProbeExecutor = defaultExecutor
+): Promise<TaskItem | undefined> {
+  const probe = findProbeByLabel(label)
+  return probe ? probeToItem(executor, probe) : undefined
+}
 
 /** 供输出通道使用的格式化报告。 */
 export function formatTaskResult(result: TaskResult): string[] {

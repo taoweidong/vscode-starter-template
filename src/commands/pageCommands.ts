@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { COMMAND } from '../constants'
 import type { BuildService } from '../features/build/buildService'
 import type { InitService } from '../features/init/initService'
+import { findProbeByLabel } from '../tasks/probes'
 import type { TaskRunner } from '../tasks/taskRunner'
 import { WebviewController } from '../webview/host/webviewController'
 import { type CommandRegistrar, notifySuccess, showError, statusIcon } from './shared'
@@ -20,10 +21,13 @@ export interface PageCommandDeps {
   buildService: BuildService
   /** 扩展上下文：openGallery 打开画廊页面需要（WebviewController.createOrShow 第二参）。 */
   context: vscode.ExtensionContext
+  /** 单探针重检（09 方案 §6.1：树节点单击「重新检测此项」的路由目标）。 */
+  recheckEnvironmentItem: (label: string) => Promise<void>
 }
 
 export function registerPageCommands(register: CommandRegistrar, deps: PageCommandDeps): void {
-  const { taskRunner, outputChannel, initService, buildService, context } = deps
+  const { taskRunner, outputChannel, initService, buildService, context, recheckEnvironmentItem } =
+    deps
 
   /* ---------- 开发用：组件画廊（设计系统视觉验收基准） ---------- */
   register(COMMAND.openGallery, () => {
@@ -31,7 +35,12 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
   })
 
   /* ---------- 启动任务 / 环境信息（环境信息视图标题栏与命令面板） ---------- */
-  register(COMMAND.refreshEnvironment, () => {
+  // 09 方案 §6.1：带 label 参数（树节点单击）→ 单探针重检；无参 → 全量检测
+  register(COMMAND.refreshEnvironment, (label?: unknown) => {
+    if (typeof label === 'string' && findProbeByLabel(label)) {
+      void recheckEnvironmentItem(label)
+      return
+    }
     void taskRunner.runAll()
   })
 

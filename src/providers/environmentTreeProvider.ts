@@ -1,4 +1,6 @@
 import * as vscode from 'vscode'
+import { COMMAND } from '../constants'
+import { findProbeByLabel } from '../tasks/probes'
 import { TaskRunner } from '../tasks/taskRunner'
 import type { TaskItem, TaskResult, TaskStatus } from '../tasks/types'
 
@@ -50,6 +52,15 @@ export class EnvironmentTreeProvider implements vscode.TreeDataProvider<EnvTreeN
         treeItem.iconPath = new vscode.ThemeIcon(STATUS_ICONS[node.item.status ?? 'missing'])
         if (node.item.tooltip) {
           treeItem.tooltip = node.item.tooltip
+        }
+        // 09 方案 §6.1：探针条目绑定单击「重新检测此项」（经 refreshEnvironment
+        // 带参路由，单探针重检不阻塞其他条目）；系统信息条目（OS/VSCode）不绑定。
+        if (findProbeByLabel(node.item.label)) {
+          treeItem.command = {
+            command: COMMAND.refreshEnvironment,
+            title: '重新检测此项',
+            arguments: [node.item.label],
+          }
         }
         return treeItem
       }

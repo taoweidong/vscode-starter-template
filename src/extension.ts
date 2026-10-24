@@ -10,6 +10,7 @@ import { createInitSteps } from './features/init/initSteps'
 import { SerialConsoleController } from './features/serialConsole/serialConsoleController'
 import { SerialConsolePanel } from './features/serialConsole/serialConsolePanel'
 import { EnvironmentTreeProvider } from './providers/environmentTreeProvider'
+import { recheckProbeByLabel } from './tasks/environmentTask'
 import { TaskRunner } from './tasks/taskRunner'
 import { TASKS } from './tasks/taskRegistry'
 import { WebviewController, type WebviewControllerDeps } from './webview/host/webviewController'
@@ -35,10 +36,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.createTreeView(VIEW.envViewId, { treeDataProvider: envProvider })
   )
   if (
-    vscode.workspace.getConfiguration(CONFIG.section).get<boolean>(CONFIG.runStartupTasks, true)
+    vscode.workspace.getConfiguration(CONFIG.section).get<boolean>(CONFIG.runStartupTasks, false)
   ) {
     // runAll 不 await——探测走子进程，不能阻塞激活流程
     void taskRunner.runAll()
+  }
+  // 09 方案 §6.1：单探针重检——只跑目标探针并就地更新缓存结果（不阻塞其他条目）
+  const recheckEnvironmentItem = async (label: string): Promise<void> => {
+    const item = await recheckProbeByLabel(label)
+    if (item) {
+      taskRunner.updateItem('environment', item)
+    }
   }
 
   // ---------- 功能页面：环境初始化 / 分支编译 ----------
@@ -101,6 +109,7 @@ export function activate(context: vscode.ExtensionContext): void {
     buildService,
     serialConsole,
     drafts,
+    recheckEnvironmentItem,
   })
 }
 

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { formatTaskResult } from './environmentTask'
-import type { StartupTask, TaskContext, TaskResult, TaskSignal } from './types'
+import type { StartupTask, TaskContext, TaskItem, TaskResult, TaskSignal } from './types'
 
 /** 单任务默认超时（毫秒）：挂死任务由 TaskRunner 强制裁决为 error，不锁死后续任务。 */
 export const DEFAULT_TASK_TIMEOUT_MS = 60000
@@ -123,6 +123,31 @@ export class TaskRunner implements vscode.Disposable {
       this.running = false
       this._onDidChangeItems.fire()
     }
+  }
+
+  /**
+   * 就地更新某任务结果中的单条条目（09 方案阶段 3：单探针重检）。
+   * - 按 taskId 定位结果、按 label 替换条目；任一不匹配则忽略（防误改）；
+   * - 替换后按「是否仍有缺失」重算该结果的状态并广播刷新。
+   */
+  updateItem(taskId: string, item: TaskItem): boolean {
+    const result = this.results.find((candidate) => candidate.taskId === taskId)
+    if (!result) {
+      return false
+    }
+    const index = result.items.findIndex(
+      (candidate) => candidate.label.toLowerCase() === item.label.toLowerCase()
+    )
+    if (index < 0) {
+      return false
+    }
+    result.items[index] = item
+    const missing = result.items.filter((entry) => entry.status !== 'ok').length
+    result.status = missing === 0 ? 'ok' : 'warn'
+    result.finishedAt = new Date().toISOString()
+    this.writeResult({ ...result, items: [item], durationMs: 0 })
+    this._onDidChangeItems.fire()
+    return true
   }
 
   /** 执行单个任务：超时裁决（Promise.race）+ 异常降级 + 结果形状校验。 */

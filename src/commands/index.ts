@@ -19,6 +19,8 @@ export interface CommandDeps {
   serialConsole: SerialConsoleController
   /** 草稿箱（右键示例载体，09 方案 §3.5） */
   drafts: DraftBoxService
+  /** 单探针重检（09 方案 §6.1：环境树节点单击路由）。 */
+  recheckEnvironmentItem: (label: string) => Promise<void>
 }
 
 /**

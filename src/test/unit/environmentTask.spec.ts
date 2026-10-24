@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
 import { __resetStubs } from './stubs/vscode'
 import { TaskSignalSource } from '../../tasks/taskRunner'
-import { createEnvironmentTask, type ProbeExecutor } from '../../tasks/environmentTask'
+import {
+  createEnvironmentTask,
+  recheckProbeByLabel,
+  type ProbeExecutor,
+} from '../../tasks/environmentTask'
+import { ENVIRONMENT_PROBES } from '../../tasks/probes'
+import { TaskRunner } from '../../tasks/taskRunner'
 import type { TaskContext } from '../../tasks/types'
 
 /** 构造任务上下文（默认不取消）。 */
@@ -97,4 +103,135 @@ describe('environmentTask 探测语义（可注入执行器）', () => {
     expect(node?.status).toBe('ok')
     expect(node?.description).toMatch(/^v/)
   }, 15000)
+})
+
+/* ================= 09 方案阶段 3：探针注册表驱动 ================= */
+
+describe('environmentTask 探针注册表（阶段 3）', () => {
+  beforeEach(() => {
+    __resetStubs()
+  })
+
+  it('条目 = 注册表逐项 + 操作系统 + VSCode（7 项，顺序稳定）', async () => {
+    const executor: ProbeExecutor = async () => ({ err: null, stdout: '', stderr: '' })
+    const result = await createEnvironmentTask(executor).run(makeContext())
+    const expected = [...ENVIRONMENT_PROBES.map((probe) => probe.label), '操作系统', 'VSCode']
+    expect(ENVIRONMENT_PROBES.map((probe) => probe.id)).toContain('java') // 注册表含 Java
+    expect(result.items.map((item) => item.label)).toEqual(expected)
+    expect(result.items).toHaveLength(7)
+  })
+
+  it('Java 探针：stdout 空但 stderr 有值（退出码 0）→ 提取引号内版本号', async () => {
+    const executor: ProbeExecutor = async (command) => {
+      if (command === 'java -version') {
+        return {
+          err: null,
+          stdout: '',
+          stderr: 'openjdk version "17.0.9" 2023-10-17\n',
+        }
+      }
+      return { err: null, stdout: '', stderr: '' }
+    }
+    const result = await createEnvironmentTask(executor).run(makeContext())
+    const java = result.items.find((item) => item.label === 'Java')
+    expect(java?.status).toBe('ok')
+    expect(java?.description).toBe('17.0.9')
+  })
+
+  it('Java 探针：java 失败时回退 javac -version（stdout 输出）', async () => {
+    const executor: ProbeExecutor = async (command) => {
+      if (command === 'javac -version') {
+        return { err: null, stdout: 'javac 17.0.9\n', stderr: '' }
+      }
+      if (command === 'java -version') {
+        return { err: new Error('exit 1'), stdout: '', stderr: '' }
+      }
+      return { err: null, stdout: '', stderr: '' }
+    }
+    const result = await createEnvironmentTask(executor).run(makeContext())
+    const java = result.items.find((item) => item.label === 'Java')
+    expect(java?.status).toBe('ok')
+    expect(java?.description).toBe('17.0.9')
+  })
+
+  it('单探针失败不阻塞其他探针（Python 缺失而 Node 正常）', async () => {
+    const executor: ProbeExecutor = async (command) => {
+      if (command === 'node --version') {
+        return { err: null, stdout: 'v20.11.0\n', stderr: '' }
+      }
+      return { err: new Error('not found'), stdout: '', stderr: '' }
+    }
+    const result = await createEnvironmentTask(executor).run(makeContext())
+    expect(result.items.find((item) => item.label === 'Python')?.status).toBe('missing')
+    expect(result.items.find((item) => item.label === 'Node.js')?.status).toBe('ok')
+    expect(result.status).toBe('warn')
+  })
+})
+
+describe('recheckProbeByLabel（单探针重检，阶段 3）', () => {
+  beforeEach(() => {
+    __resetStubs()
+  })
+
+  it('按 label 路由：只执行目标探针的候选命令', async () => {
+    const attempted: string[] = []
+    const executor: ProbeExecutor = async (command) => {
+      attempted.push(command)
+      return command === 'git --version'
+        ? { err: null, stdout: 'git version 2.43.0\n', stderr: '' }
+        : { err: null, stdout: '', stderr: '' }
+    }
+    const item = await recheckProbeByLabel('Git', executor)
+    expect(attempted).toEqual(['git --version'])
+    expect(item).toMatchObject({ label: 'Git', status: 'ok' })
+    expect(item?.description).toBe('2.43.0')
+  })
+
+  it('非探针条目（操作系统 / VSCode / 未知）返回 undefined，不执行任何命令', async () => {
+    const executor: ProbeExecutor = async () => {
+      throw new Error('不应执行')
+    }
+    expect(await recheckProbeByLabel('操作系统', executor)).toBeUndefined()
+    expect(await recheckProbeByLabel('VSCode', executor)).toBeUndefined()
+    expect(await recheckProbeByLabel('不存在', executor)).toBeUndefined()
+  })
+})
+
+describe('TaskRunner.updateItem（单探针就地刷新，阶段 3）', () => {
+  beforeEach(() => {
+    __resetStubs()
+  })
+
+  it('替换同 label 条目并重算状态；结果经事件广播', async () => {
+    const runner = new TaskRunner(
+      [createEnvironmentTask(async () => ({ err: new Error('x'), stdout: '', stderr: '' }))],
+      vscode.window.createOutputChannel('CRUD Starter Test')
+    )
+    await runner.runAll()
+    expect(runner.lastResults[0].status).toBe('warn')
+
+    let events = 0
+    runner.onDidChangeItems(() => events++)
+    const updated = runner.updateItem('environment', {
+      label: 'Python',
+      description: '3.11.4',
+      status: 'ok',
+    })
+    expect(updated).toBe(true)
+    expect(events).toBe(1)
+    const result = runner.lastResults[0]
+    expect(result.items.find((item) => item.label === 'Python')?.status).toBe('ok')
+    // 其余缺失项仍在 → 状态仍为 warn；全部补齐后才转 ok
+    expect(result.status).toBe('warn')
+  })
+
+  it('taskId 或 label 不匹配时忽略并返回 false', async () => {
+    const runner = new TaskRunner(
+      [createEnvironmentTask(async () => ({ err: null, stdout: 'v1\n', stderr: '' }))],
+      vscode.window.createOutputChannel('CRUD Starter Test')
+    )
+    await runner.runAll()
+    expect(runner.updateItem('other-task', { label: 'Python', status: 'ok' })).toBe(false)
+    expect(runner.updateItem('environment', { label: '不存在的条目', status: 'ok' })).toBe(false)
+  })
 })

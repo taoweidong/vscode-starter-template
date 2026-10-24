@@ -289,8 +289,8 @@
       "properties": {
         "crudStarter.runStartupTasks": {
           "type": "boolean",
-          "default": true,
-          "description": "插件激活时自动执行启动任务（环境检测脚本）。关闭后仍可通过「环境信息」视图的刷新按钮手动执行。"
+          "default": false,
+          "description": "插件激活时自动执行启动任务（环境检测脚本）。默认关闭——改为点击「环境信息」视图的刷新按钮或单击单个探针条目按需检测。"
         },
         "crudStarter.serialConsoleEnabled": {
           "type": "boolean",
