@@ -23,6 +23,14 @@ export const ICON_NAMES = {
   arrowUp: 'arrow-up',
   arrowDown: 'arrow-down',
   dash: 'dash',
+  server: 'server',
+  plug: 'plug',
+  terminal: 'terminal',
+  send: 'send',
+  history: 'history',
+  clearAll: 'clear-all',
+  eye: 'eye',
+  eyeClosed: 'eye-closed',
 } as const
 
 export type IconName = keyof typeof ICON_NAMES
