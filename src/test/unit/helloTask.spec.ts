@@ -43,6 +43,12 @@ describe('TASKS 启动任务注册表（预留的扩展接口）', () => {
     expect(TASKS.map((task) => task.id)).toEqual(['hello', 'environment'])
   })
 
+  it('清单声明 onStartupFinished：VSCode 窗口加载完成即激活（无需打开文件夹或点击插件）', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pkg = require('../../../package.json') as { activationEvents: string[] }
+    expect(pkg.activationEvents).toContain('onStartupFinished')
+  })
+
   it('经 TaskRunner 依次执行：控制台先打印脚本输出再打印结果汇总', async () => {
     __resetStubs()
     // 环境检测注入假 run（避免真实子进程探测），只验证调度顺序与控制台打印

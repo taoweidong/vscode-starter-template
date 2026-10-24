@@ -21,6 +21,11 @@ import type { WebviewPageId } from '../webview/pages'
  * 插件入口：只做「组装」——各功能视图、命令、启动任务。
  * 各层职责见 README 的架构说明。
  *
+ * 激活时机（package.json activationEvents: ['onStartupFinished']）：
+ * VSCode 窗口加载完成即激活——不要求打开文件夹，也不要求用户与插件交互
+ * （装了即执行），随后按 runStartupTasks 自动运行初始化脚本与环境检测。
+ * 扩展宿主按窗口存在，「每次开窗」是 VSCode 提供的最接近「打开时执行」的粒度。
+ *
  * 09 方案阶段 2：条目 CRUD / 特性配置 / 静态配置三链路删除
  * （C14：本文件的存储装配、selfDataIgnorePrefix、静态配置 watcher、
  * ItemFormPanel / ConfigFormPanel / ImportWizardPanel 接线一并清理）。
