@@ -4,6 +4,7 @@ import * as vscode from 'vscode'
 import type { Item } from '../../models/item'
 import { normalizeItemList } from '../../models/itemGuard'
 import type { IItemStore } from './itemStore'
+import { writeJsonAtomic } from './atomicWrite'
 
 /**
  * 默认数据源：工作区内的 JSON 文件（路径由 crudStarter.storagePath 配置，经白名单校验）。
@@ -110,31 +111,8 @@ export class JsonFileStore implements IItemStore {
   }
 
   async save(items: Item[]): Promise<void> {
-    const content = Buffer.from(
-      `${JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, items }, null, 2)}\n`,
-      'utf8'
-    )
-    const dirUri = vscode.Uri.joinPath(this.fileUri, '..')
-    await vscode.workspace.fs.createDirectory(dirUri)
-    const tempUri = vscode.Uri.joinPath(
-      dirUri,
-      `${path.basename(this.fileUri.fsPath)}.tmp-${randomUUID()}`
-    )
-    try {
-      await vscode.workspace.fs.writeFile(tempUri, content)
-      // 读回比对：确认临时文件完整落盘（磁盘满 / 并发写会在这里暴露）
-      const written = Buffer.from(await vscode.workspace.fs.readFile(tempUri))
-      if (Buffer.compare(written, content) !== 0) {
-        throw new Error('临时文件读回校验失败（磁盘可能已满或被并发改写）')
-      }
-      // 同目录 rename：目标要么是完整新内容，要么保持原样
-      await vscode.workspace.fs.rename(tempUri, this.fileUri, { overwrite: true })
-    } catch (err) {
-      // 失败路径：清理临时文件后抛出，原文件未被触碰
-      // （Thenable 没有 .catch，用 then 的第二参数吞掉清理失败）
-      await vscode.workspace.fs.delete(tempUri).then(undefined, () => undefined)
-      throw err
-    }
+    // 原子写实现抽取至 atomicWrite.ts（与服务器数据文件共用），可靠性契约不变
+    await writeJsonAtomic(this.fileUri, { schemaVersion: STORAGE_SCHEMA_VERSION, items })
   }
 
   /**

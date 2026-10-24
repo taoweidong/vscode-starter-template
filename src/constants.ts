@@ -98,4 +98,10 @@ export const STORAGE = {
   defaultFileName: '.vscode/crud-starter-items.json',
   /** 未打开工作区时，globalState 的存储键 */
   mementoKey: 'crudStarter.items',
+  /** 串口服务器：未打开工作区时，globalState 的存储键 */
+  serialServersMementoKey: 'crudStarter.serialServers',
+  /** 串口命令历史（全局共享、自动去重）：globalState 的存储键 */
+  serialCommandHistoryKey: 'crudStarter.serialCommandHistory',
+  /** 串口服务器登录密码的 SecretStorage 键前缀（完整键为 `<前缀><服务器id>.password`） */
+  serialServerSecretPrefix: 'crudStarter.serialServer.',
 } as const
