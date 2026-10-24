@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ITEM_FIELD_DEFS, type ItemFieldDef } from '../../../domain/itemSchema'
+import { SERVER_FIELD_DEFS } from '../../../features/serialConsole/serverSchema'
 import { deriveFormSchema, FORM_SCHEMA, toFieldDefs } from '../../../webview/formSchema'
 
 /**
@@ -50,5 +51,34 @@ describe('deriveFormSchema（领域 Schema → 表单字段）', () => {
   it('toFieldDefs 透传 datalist（init 载荷供页面渲染分类建议）', () => {
     const defs = toFieldDefs(FORM_SCHEMA)
     expect(defs.find((def) => def.key === 'category')?.datalist).toBe('category-list')
+  })
+})
+
+/* ================= 通用化：非条目领域（串口服务器）的派生 ================= */
+
+describe('deriveFormSchema（通用领域字段表）', () => {
+  it('串口服务器字段表可派生：字段齐全、boolean/password 透传、不受条目 UI 附加属性影响', () => {
+    const schema = deriveFormSchema(SERVER_FIELD_DEFS)
+    expect(schema.map((field) => field.key)).toEqual(SERVER_FIELD_DEFS.map((def) => def.key))
+    expect(schema.find((field) => field.key === 'autoLogin')).toMatchObject({
+      type: 'boolean',
+      defaultValue: 'false',
+    })
+    expect(schema.find((field) => field.key === 'baudRate')?.options?.[0]).toEqual({
+      value: '9600',
+      label: '9600',
+    })
+    // UI_FIELD_EXTRAS 只按条目 key 叠加，服务器字段不应被污染
+    expect(schema.every((field) => field.datalist === undefined)).toBe(true)
+  })
+
+  it('条目表单回归：FORM_SCHEMA 输出与泛化前一致（key/类型/默认值不变）', () => {
+    expect(FORM_SCHEMA.map((f) => [f.key, f.type, f.defaultValue, f.required])).toEqual([
+      ['name', 'text', undefined, true],
+      ['category', 'text', undefined, undefined],
+      ['priority', 'select', 'medium', undefined],
+      ['tags', 'tags', undefined, undefined],
+      ['description', 'textarea', undefined, undefined],
+    ])
   })
 })

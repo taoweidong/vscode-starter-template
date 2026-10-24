@@ -1,4 +1,4 @@
-import { ITEM_FIELD_DEFS, type ItemFieldDef } from '../domain/itemSchema'
+import { ITEM_FIELD_DEFS } from '../domain/itemSchema'
 import type { FieldDef } from './protocol'
 
 /**
@@ -11,6 +11,29 @@ import type { FieldDef } from './protocol'
  * 开关字段，见 src/features/featureConfig）。
  */
 export type FormFieldType = 'text' | 'textarea' | 'select' | 'tags' | 'boolean'
+
+/**
+ * 通用领域字段定义（与 domain/itemSchema.ts 的 ItemFieldDef 结构一致）。
+ * 独立声明而非复用 ItemFieldDef：串口服务器等领域定义自己的字段表时，
+ * 不必引入条目领域的类型面。
+ */
+export interface SchemaFieldDef {
+  /** 对应领域 Draft 的字段名 */
+  key: string
+  type: FormFieldType
+  label: string
+  /** 必填（text / textarea：trim 后非空；select：必须有合法值） */
+  required?: boolean
+  /** 文本最大长度（trim 后计量，超长报错） */
+  maxLength?: number
+  /** select / boolean 的默认值 */
+  defaultValue?: string
+  /** select 的可选项 */
+  options?: { value: string; label: string }[]
+  /** 字段下方的说明文字 */
+  hint?: string
+  placeholder?: string
+}
 
 export interface FormField {
   /** 对应 ItemDraft 的字段名 */
@@ -44,11 +67,12 @@ const UI_FIELD_EXTRAS: Record<string, Partial<FormField>> = {
 }
 
 /**
- * 领域字段定义 → 表单字段（ItemFieldDef 与 FormField 结构同构，逐属性显式拷贝，
- * 避免把 domain 类型直接引入 Webview 类型程序的 import 面）。
- * 加字段只需扩展 ITEM_FIELD_DEFS，本函数与表单页零改动。
+ * 领域字段定义 → 表单字段（SchemaFieldDef 与 FormField 结构同构，逐属性显式拷贝，
+ * 避免把具体领域类型直接引入 Webview 类型程序的 import 面）。
+ * 参数为通用结构类型：条目（ITEM_FIELD_DEFS）、串口服务器（SERVER_FIELD_DEFS）
+ * 等任何领域的字段表都能派生，加字段只需扩展各自的领域定义。
  */
-export function deriveFormSchema(defs: readonly ItemFieldDef[]): FormField[] {
+export function deriveFormSchema(defs: readonly SchemaFieldDef[]): FormField[] {
   return defs.map((def) => ({
     key: def.key,
     label: def.label,
