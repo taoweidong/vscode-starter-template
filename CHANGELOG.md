@@ -6,6 +6,42 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-24
+
+### 变更（破坏性）
+
+- **项目定位收敛**：按 09 方案从「CRUD 演示集合」重构为「VSCode 扩展初始化模板」——
+  删除条目 / 特性配置 / 静态配置三视图及全部相关代码（7→4 视图、37→16 命令、
+  42→23 菜单条目、2 子菜单与 2 快捷键清零、8→2 配置项），源码 −33% / 测试 −40%。
+- **ID 前缀迁移**：`crudStarter.*` → `extStarter.*`（命令 / 视图 / 配置 / 存储 / Secret 键），
+  旧版设置与 Memento 数据在激活时自动迁移，SecretStorage 密码惰性搬迁；
+  用户自定义 keybindings / when 条件需手动更新。
+
+### 新增
+
+- **启动脚本**：VSCode 窗口加载完成即自动执行（`onStartupFinished`，无需打开文件夹或交互）——
+  初始化脚本「Hello World」+ 环境检测（含 Python 版本检查），过程打印输出通道；
+  扩展接口：实现 `StartupTask` 接口并在 `taskRegistry.ts` 的 `TASKS` 数组加一项。
+- **环境探针注册表**（`probes.ts`）：Python/Node/npm/Java/Git，新增语言 = 加一条数据；
+  树视图单击探针条目可单独重检。
+- **草稿箱**：8 条右键入口（编辑器 / 资源管理器 / 标题栏）统一落盘
+  `.vscode/ext-starter.drafts.json`（原子写、上限 100 条）。
+- **i18n**：manifest 文案外置 `package.nls.json` / `package.nls.zh-cn.json`（27 键）。
+- **打包**：`npm run package:vsix` 跨平台归档到 `release/`（纯 Node 脚本）+
+  Windows 双击入口 `package.bat`。
+
+### 修复
+
+- **Webview 图标全不显示**：vite `base: './'` 根治 CSS 内字体 404；
+  门禁新增「产物 CSS 禁止站点根绝对引用」红线，e2e 改 `/webview/**` 子路径路由 +
+  字体加载断言，消除 harness 假绿。
+- 分支编译脏检查默认忽略串口数据文件，修掉「用过串口 → 分支编译永远自阻断」。
+
+### 工程化
+
+- 目录收敛 `src/extension/`（宿主侧）与 `src/webview/`（跨侧契约仅 protocol.ts）；
+  tsconfig 三段拆分；门禁前缀改动态读取；宿主 bundle 83.5 → 66.4 KB。
+
 ## [0.7.0] - 2026-10-24
 
 ### 新增
