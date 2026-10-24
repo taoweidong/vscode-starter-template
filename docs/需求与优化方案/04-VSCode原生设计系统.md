@@ -51,16 +51,28 @@
 
 ## 3. 基础规格（尺寸 / 字阶 / 间距）
 
-| 项       | 值                                                                    |
-| -------- | --------------------------------------------------------------------- |
-| 控件高度 | 26px（checkbox 15px；textarea 最小 76px、可纵向缩放）                 |
-| 圆角     | 2px（键帽 3px）                                                       |
-| 正文字号 | `--ui-font-size`（13px）；行高 1.5                                    |
-| 标题     | 1.3em / 600；提示文字 0.9em（`--ui-fg-muted`）                        |
-| 间距刻度 | 4 / 8 / 12 / 16 / 24（禁止 5/6/10/14/18/20/28 等杂值）                |
-| 焦点     | `outline: 1px solid var(--ui-focus)`，输入框 offset -1、按钮 offset 1 |
-| 过渡     | `border-color var(--ui-motion), background-color var(--ui-motion)`    |
-| 内边距   | 输入 `4px 8px`；按钮 `4px 14px`（min-width 72px）                     |
+| 项       | 值                                                                                |
+| -------- | --------------------------------------------------------------------------------- |
+| 控件高度 | 26px（checkbox 15px；textarea 最小 76px、可纵向缩放）                             |
+| 圆角     | 2px（键帽 3px）                                                                   |
+| 正文字号 | `--ui-font-size`（13px）；行高 1.5                                                |
+| 标题     | 1.3em / 600；提示文字 0.9em（`--ui-fg-muted`）                                    |
+| 间距刻度 | 4 / 8 / 12 / 16 / 24（禁止 5/6/10/14/18/20/28 等杂值）                            |
+| 焦点     | `outline: 1px solid var(--ui-focus)`，输入框 offset -1、按钮 offset 1             |
+| 过渡     | `border-color var(--ui-motion), background-color var(--ui-motion)`                |
+| 内边距   | 输入 `4px 8px`；按钮 `4px 14px`（min-width 72px）                                 |
+| 页面宽度 | form 560 / settings 720 / wizard 960 / full 全宽（已登记为 `--ui-shell-width-*`） |
+
+### 3.1 焦点环矩阵（07 R-U-10 登记：内外向差异是**刻意对齐 VSCode 原生**，勿「统一」）
+
+| 控件族                                 | 选择器           | offset | 理由                                                                                    |
+| -------------------------------------- | ---------------- | ------ | --------------------------------------------------------------------------------------- |
+| 输入类（VInput / VTextarea / VSelect） | `:focus`         | −1px   | 输入框四周有 1px 描边，环画在**内侧**才不被描边挤开、也不与相邻控件重叠                 |
+| 按钮类（VButton / VCheckbox）          | `:focus-visible` | +1px   | 按钮无持续描边，环画在**外侧**；且只有键盘导航才显示，鼠标点击不出现（VSCode 原生行为） |
+| 面板容器（importWizard 步骤面板）      | `:focus-visible` | +2px   | 程序化聚焦（`tabindex="-1"`）用于键盘焦点接管，鼠标触发时不显示环                       |
+
+- 统一写法：`outline: 1px solid var(--ui-focus)`，只有 `outline-offset` 与触发选择器不同；
+- 改这两处方向前请先读本表——历史上曾有人想「统一成 +1px」，会让输入框环被描边裁掉一半。
 
 ## 4. 组件清单与规格
 
@@ -86,7 +98,8 @@
 
 ### 4.4 VCheckbox
 
-- 15px；`accent-color: var(--vscode-checkbox-select-background, var(--ui-focus))`；label 布局 `gap: 8px`、600 字重。
+- 15px；`accent-color: var(--ui-check-selected)`（07 R-U-4：不再直接消费 `--vscode-*`，
+  令牌回退为 `var(--vscode-checkbox-select-background, var(--ui-focus))`）；label 布局 `gap: 8px`、600 字重。
 
 ### 4.5 VFormField（表单语义容器）
 
@@ -96,7 +109,10 @@
 
 ### 4.6 VToolbar
 
-- 横排 `gap: 8px`；图标按钮 hover 背景 `--ui-surface-hover`；分隔符 1px `--ui-border`。
+- 横排 `gap: 8px`；图标按钮 hover 背景 `--ui-surface-hover`；分隔符 1px `--ui-border`
+  （宽 `--ui-hairline`、高 `--ui-toolbar-divider-height`）。
+- 可访问性（07 R-U-8）：容器 `role="group"` + `aria-label`，**不是** `role="toolbar"` ——
+  工具栏角色会让屏幕阅读器播报「用方向键导航」，而本项目只支持 Tab 遍历（与 VSCode 习惯一致）。
 
 ### 4.7 VEmptyState / VLoading
 
@@ -161,11 +177,21 @@
 
 已实现：`scripts/checks/style.ts`（门禁第 ⑥ 步执行）。
 
-1. `src/webview/**`（除 `ui/tokens.css`）禁止 `#[0-9a-fA-F]{3,8}\b`、`rgb(`、`hsl(`；
+1. `src/webview/**`（除 `ui/tokens.css`）禁止 `#[0-9a-fA-F]{3,8}\b`、`rgb(`、`hsl(`
+   （07 R-E-9 收紧误伤：先剔除 `url(#…)` 与字符串字面量，且要求 `#hex` 处于**值位置**
+   ——前一有效字符是 `:` / `,` / `(` —— 选择器 `#id` 不再误报）；
 2. 禁止 `v-html`、`innerHTML`（`dangerously`）赋值；
-3. 禁止 import Element Plus / Vuetify / Ant Design / Tailwind（导入白名单：`vue`、`@vscode/codicons`、项目内模块）;
-4. 间距值白名单（4/8/12/16/24，`padding/margin/gap` 上下文）——超出需在令牌文件登记新刻度；
-5. `dist/webview/**` 产物扫描：无 `eval(`、`new Function(`、`unsafe-eval`、`unsafe-inline`。
+3. 禁止 import Element Plus / Vuetify / Ant Design / Tailwind（导入白名单：`vue`、`@vscode/codicons`、
+   项目内模块；07 R-E-4 升级为「包名前缀 + 全 import 形态覆盖」，副作用 import 也拦）;
+4. **尺寸令牌强制**（07 R-U-4 升级，取代原「间距值白名单 4/8/12/16/24」）：
+   `padding` / `margin` / `gap` / `border-radius` / `height` / `min-height` / `max-height` /
+   `width` / `min-width` / `max-width` / `font-size` 声明中的 px 值必须走 `var(--ui-*)`；
+   逐声明切分匹配（不再行首锚定，同行多声明无法绕过）；负尺寸（`-1px`）仍豁免；
+   新规格先在 `ui/tokens.css` 登记；
+5. `dist/webview/**` 产物扫描：无 `eval(`、`new Function(`、`unsafe-eval`、`unsafe-inline`；
+6. 禁止 `.vue` 模板**静态** `style="..."` 属性（07 R-E-12 / 07 §2）：
+   宿主 CSP `style-src` 无 `'unsafe-inline'` 会静默拦截；`:style` / `v-bind:style`
+   编译为 CSSOM（`setProperty`），实测放行、不误伤。
 
 ## 10. 与现有 README「UI 风格约定」的衔接
 

@@ -25,7 +25,11 @@ export interface FormField {
   defaultValue?: string
   /** select 类型的选项 */
   options?: { value: string; label: string }[]
-  /** 输入建议列表的 datalist 元素 id（text 输入的自动补全提示） */
+  /**
+   * 该字段需要「输入建议列表」的标记（text 输入的自动补全提示）。
+   * 值只作标记用、不是 DOM id —— datalist 元素的真实 id 由页面用 useId 派生（R-U-7），
+   * 避免固定 id 在多实例面板下重复。
+   */
   datalist?: string
 }
 
@@ -33,7 +37,7 @@ export interface FormField {
  * UI 层附加属性（按字段 key 声明式叠加）：datalist 这类「页面渲染行为」属于
  * Webview 层关切，不进领域定义（领域只描述数据与校验）。
  * 当前唯一条目：分类输入建议（datalist 元素由条目表单页持有，选项来自宿主
- * 下发的已有分类列表）。
+ * 下发的已有分类列表）。值为标记，页面据此决定是否渲染 datalist 并派生唯一 DOM id。
  */
 const UI_FIELD_EXTRAS: Record<string, Partial<FormField>> = {
   category: { datalist: 'category-list' },

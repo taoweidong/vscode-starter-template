@@ -40,7 +40,7 @@ defineProps<{
 }
 
 .v-empty-state__icon {
-  font-size: 24px;
+  font-size: var(--ui-empty-icon-size); /* R-U-4 */
   color: var(--ui-fg-muted);
 }
 

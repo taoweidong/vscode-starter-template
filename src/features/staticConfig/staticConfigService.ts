@@ -37,6 +37,8 @@ export const DEFAULT_STATIC_CONFIG: Record<string, unknown> = {
  */
 export class StaticConfigService implements vscode.Disposable {
   private sections: StaticConfigSection[] = []
+  /** 最近一次加载的解析失败原因（R-C-22：成功加载后清除；树视图据此展示错误态节点）。 */
+  private loadError: string | undefined
   private readonly _onDidChangeItems = new vscode.EventEmitter<void>()
   readonly onDidChangeItems = this._onDidChangeItems.event
 
@@ -52,6 +54,11 @@ export class StaticConfigService implements vscode.Disposable {
 
   getSections(): StaticConfigSection[] {
     return this.sections
+  }
+
+  /** 最近一次加载的解析失败原因（undefined 表示无失败；树视图区分「失败」与「未生成」）。 */
+  getError(): string | undefined {
+    return this.loadError
   }
 
   /** 配置文件不存在时生成默认模板；返回是否创建。 */
@@ -80,6 +87,7 @@ export class StaticConfigService implements vscode.Disposable {
     const uri = this.fileUri
     if (!uri) {
       this.sections = []
+      this.loadError = undefined
       this._onDidChangeItems.fire()
       return
     }
@@ -89,11 +97,14 @@ export class StaticConfigService implements vscode.Disposable {
       this.sections = StaticConfigService.flatten(
         data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
       )
+      this.loadError = undefined
     } catch (err) {
       if (!(err instanceof vscode.FileSystemError && err.code === 'FileNotFound')) {
-        this.output.appendLine(
-          `[静态配置] 解析失败：${err instanceof Error ? err.message : String(err)}`
-        )
+        // R-C-22：解析失败记录原因（树视图展示错误态节点，不再静默显示「暂无静态配置」）
+        this.loadError = err instanceof Error ? err.message : String(err)
+        this.output.appendLine(`[静态配置] 解析失败：${this.loadError}`)
+      } else {
+        this.loadError = undefined
       }
       this.sections = []
     }

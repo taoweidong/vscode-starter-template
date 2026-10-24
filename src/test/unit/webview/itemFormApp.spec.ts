@@ -90,6 +90,22 @@ function findSaveButton() {
     .find((button) => button.text() === '保存')
 }
 
+/**
+ * 按可见标签文本定位字段控件（label[for] → 控件 id），与 e2e 的 getByLabel 同路径。
+ * R-U-7 之后控件 id 由 useId 生成，测试不能再依赖固定 id。
+ */
+function fieldControlByLabel(labelText: string) {
+  const label = mountTarget()
+    .findAll('label')
+    .find((candidate) => candidate.text().startsWith(labelText))
+  const controlId = label?.attributes('for')
+  const control = controlId ? mountTarget().find(`#${controlId}`) : undefined
+  if (!control?.exists()) {
+    throw new Error(`未找到「${labelText}」字段控件`)
+  }
+  return control
+}
+
 describe('itemForm：就绪与三模式回填', () => {
   it('挂载后上报 ready', () => {
     mountApp()
@@ -120,14 +136,22 @@ describe('itemForm：就绪与三模式回填', () => {
     expect(inputValue(mountTarget().find('select').element)).toBe('high')
   })
 
-  it('categories 渲染为分类 datalist 建议', async () => {
+  it('categories 渲染为分类 datalist 建议（R-U-7：id 由 useId 派生，且与输入框 list 一致）', async () => {
     mountApp()
     initMessage({ value: {}, categories: ['需求', '任务'] })
+    let datalistId = ''
     await vi.waitFor(() => {
-      expect(mountTarget().find('datalist#category-list').exists()).toBe(true)
+      const list = mountTarget().find('datalist')
+      expect(list.exists()).toBe(true)
+      datalistId = list.attributes('id') ?? ''
     })
-    const options = mountTarget().find('datalist#category-list').findAll('option')
+    // 不再是硬编码的固定 id
+    expect(datalistId).toBeTruthy()
+    expect(datalistId).not.toBe('category-list')
+    const options = mountTarget().find('datalist').findAll('option')
     expect(options.map((option) => option.attributes('value'))).toEqual(['需求', '任务'])
+    // 分类输入框的 list 必须指向同一个 datalist，否则建议不生效
+    expect(fieldControlByLabel('分类').attributes('list')).toBe(datalistId)
   })
 })
 

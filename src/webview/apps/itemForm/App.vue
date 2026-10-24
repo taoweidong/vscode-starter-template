@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import type { HostMessage } from '../../protocol'
 import { useVsCodeApi } from '../../shared/useVsCodeApi'
 import { schemaDefaults, toFormFields } from '../../components/fieldAdapter'
@@ -63,9 +63,28 @@ const subtitle = computed(() =>
     : '填写后点击「保存」，数据将写入当前工作区的存储。'
 )
 const dirty = computed(() => stableStringify(value.value) !== stableStringify(baseline.value))
-/** 有 datalist 声明的字段（分类建议）：页面持有 datalist 元素，输入建议来自 init 的 categories。 */
+
+/**
+ * R-U-7：schema 的 `datalist` 是「该字段需要输入建议」的**标记**（宿主下发，值本身无 DOM 含义），
+ * 真正的 DOM id 由本页用 useId 派生 —— 固定 id（原 `category-list`）在多实例面板
+ * （预览 / 分屏同页）下会重复，与全项目「控件 id 由 useId 保证唯一」的约定冲突。
+ */
+const datalistIdSeed = useId()
+
+/** 下发到 SchemaForm 的 schema：把 datalist 标记解析为本页唯一的 DOM id。 */
+const formSchema = computed(() =>
+  schema.value.map((field) =>
+    typeof field.datalist === 'string'
+      ? { ...field, datalist: `${datalistIdSeed}__${field.key}` }
+      : field
+  )
+)
+
+/** 需要 datalist 的字段：页面持有元素，选项来自 init 的 categories。 */
 const datalistFields = computed(() =>
-  schema.value.filter((field) => typeof field.datalist === 'string')
+  formSchema.value
+    .filter((field) => typeof field.datalist === 'string')
+    .map((field) => ({ key: field.key, id: field.datalist as string }))
 )
 
 const { initialized, submitting, hostError } = useFormPage({
@@ -208,7 +227,7 @@ function onClearError(key: string): void {
     <SchemaForm
       ref="formRef"
       v-model="value"
-      :schema="schema"
+      :schema="formSchema"
       :errors="fieldErrors"
       :disabled="submitting"
       :aria-label="title"
@@ -219,14 +238,22 @@ function onClearError(key: string): void {
 
     <p v-if="hostError" class="item-form__error" role="alert">{{ hostError }}</p>
 
-    <!-- 分类输入建议：datalist 元素与输入框分置，经 schema 的 datalist id 关联 -->
-    <datalist v-for="field in datalistFields" :id="field.datalist" :key="field.key">
+    <!-- 分类输入建议：datalist 元素与输入框分置，经解析后的 datalist id 关联（R-U-7） -->
+    <datalist v-for="entry in datalistFields" :id="entry.id" :key="entry.key">
       <option v-for="category in categories" :key="category" :value="category"></option>
     </datalist>
 
     <template #actions>
-      <VButton variant="secondary" :disabled="submitting" @click="onCancel">取消</VButton>
-      <VButton variant="primary" icon="save" :loading="submitting" @click="requestSubmit"
+      <!-- R-U-5：init 到达前禁用保存/取消——空 schema 恒过校验，会把空草稿提交到宿主 -->
+      <VButton variant="secondary" :disabled="!initialized || submitting" @click="onCancel"
+        >取消</VButton
+      >
+      <VButton
+        variant="primary"
+        icon="save"
+        :loading="submitting"
+        :disabled="!initialized || submitting"
+        @click="requestSubmit"
         >保存</VButton
       >
     </template>
@@ -241,7 +268,7 @@ function onClearError(key: string): void {
   margin: 0 0 var(--ui-space-3);
   padding: var(--ui-space-2) var(--ui-space-3);
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   background: var(--ui-surface);
   color: var(--ui-fg-muted);
   font-size: 0.9em;

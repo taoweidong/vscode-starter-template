@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,7 +8,10 @@ import { fileURLToPath } from 'node:url'
  * E2E 静态服务器（零依赖，Node http）：
  * - 以 dist/webview 为根，服务 /assets/** 与 /.vite/manifest.json；
  * - GET /harness/:pageId 动态生成加载壳：入口 script + 入口及其 import 链上的全部 css
- *   （解析逻辑对齐 src/webview/host/assetResolver.ts：入口键 → file + css + imports 链）。
+ *   （解析逻辑对齐 src/webview/host/assetResolver.ts：入口键 → file + css + imports 链）；
+ * - 加载壳注入与真实宿主一致的 CSP meta（镜像 src/webview/host/webviewHtml.ts，
+ *   07 R-E-11）：harness 与宿主同策略，消除「harness 放行、宿主拦截」盲区
+ *   （如静态 style 属性、unsafe-eval 在测试中放行而在真实宿主被拦）。
  *
  * 页面入口路径表镜像 src/webview/pages.ts（单一来源在该文件，此处为测试基建副本）。
  */
@@ -15,6 +19,28 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.E2E_PORT || 3999)
 const HOST = '127.0.0.1'
 const ROOT = fileURLToPath(new URL('../../dist/webview/', import.meta.url))
+/** harness 资源同源域（对应宿主 CSP 中的 cspSource）。 */
+const CSP_ORIGIN = `http://${HOST}:${PORT}`
+
+/**
+ * CSP 策略（镜像 src/webview/host/webviewHtml.ts，07 R-E-11）。
+ * 逐条对齐宿主，只把 cspSource 换成 harness 自身的同源域：
+ * 若 harness 不设 CSP，静态 `style=""` 属性 / `eval()` 这类「宿主会拦、测试放行」的
+ * 违例在 e2e 中永远发现不了（07 §2 盲区）。
+ */
+function buildCsp(nonce) {
+  return [
+    "default-src 'none'",
+    `script-src 'nonce-${nonce}' ${CSP_ORIGIN}`,
+    `style-src ${CSP_ORIGIN}`,
+    `img-src ${CSP_ORIGIN} data:`,
+    `font-src ${CSP_ORIGIN}`,
+    "connect-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ].join('; ')
+}
 
 /** 页面 id → Vite 入口源路径（src/webview/pages.ts 的镜像，用于 manifest 键匹配）。 */
 const PAGE_ENTRY_PATHS = {
@@ -96,17 +122,20 @@ async function buildHarnessHtml(pageId) {
   }
   const cssFiles = collectCssFiles(manifest, chunk, new Set([pageId]))
   const cssLinks = cssFiles.map((file) => `<link rel="stylesheet" href="/${file}">`).join('\n    ')
+  // 与宿主一致：每帧重新生成 nonce（宿主侧见 webviewController.renderHtml）
+  const nonce = randomBytes(16).toString('hex')
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="${buildCsp(nonce)}">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>E2E harness: ${pageId}</title>
     ${cssLinks}
 </head>
 <body>
   <div id="app" data-page="${pageId}"></div>
-  <script type="module" src="/${chunk.file}"></script>
+  <script type="module" nonce="${nonce}" src="/${chunk.file}"></script>
 </body>
 </html>`
   return { status: 200, body: html, contentType: MIME_TYPES['.html'] }

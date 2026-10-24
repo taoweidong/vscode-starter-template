@@ -39,9 +39,10 @@ export interface StorageControllerOptions {
  * 并把重建结果通过 service.replaceStore 注入（service 实例与命令注册引用保持不变）。
  * 订阅 onDidChangeWorkspaceFolders 与 onDidChangeConfiguration(storagePath) 触发重建。
  *
- * watcher 加固（T1.5 / P1-03）：
+ * watcher 加固（T1.5 / P1-03 / R-C-5）：
  * - 变更事件 300ms 防抖；
- * - 自身保存后 500ms 内的变更事件忽略（依据 service.lastPersistAt）；
+ * - 自身保存后 500ms 内的变更事件忽略，按**事件产生时刻**与 service.lastPersistAt
+ *   因果判定（保存前产生的事件是真实外部修改，不被误杀）；
  * - 删除事件不把「空」当有效数据：只静默失效缓存（reload({silent:true})），不广播空列表。
  */
 export class StorageController implements vscode.Disposable {
@@ -96,6 +97,10 @@ export class StorageController implements vscode.Disposable {
     const resolved = resolveStorageUriOrDefault(root, configured)
     if (resolved.usedDefault && resolved.reason) {
       this.warnInvalidPathOnce(configured, resolved.reason)
+    } else {
+      // R-C-16：配置恢复合法后清除「同一非法值只提示一次」的记忆，
+      // 否则用户改成合法值、再输回同一个非法值时不会再收到提醒。
+      this.lastWarnedInvalidPath = undefined
     }
     return new JsonFileStore(resolved.uri, {
       onWarning: this.options.onWarning,
@@ -109,12 +114,32 @@ export class StorageController implements vscode.Disposable {
     if (sameStore(this.store, next)) {
       return
     }
+    this.notifySourceSwitch(this.store, next)
     this.clearReloadTimer()
     this.detachWatcher()
     this.store = next
     this.service.replaceStore(next)
     this.attachWatcher()
     this.service.reload() // 通知树视图按新数据源刷新
+  }
+
+  /**
+   * R-C-15：数据源**类型**切换（工作区文件 ↔ 全局状态）时明确告知。
+   * 移除工作区文件夹会让条目「凭空消失」，重新打开又「凭空出现」——
+   * 必须在输出通道留痕说明当前读写的是哪个数据源（不做弹窗：开/关文件夹是高频动作）。
+   */
+  private notifySourceSwitch(from: IItemStore, to: IItemStore): void {
+    const fromKind = storeKind(from)
+    const toKind = storeKind(to)
+    if (fromKind === toKind) {
+      return // 同类型内的路径变化（配置改动）无需说明
+    }
+    const hint =
+      toKind === STORE_KIND_FILE
+        ? '此后条目读写工作区内的 JSON 文件。'
+        : '当前没有打开的工作区文件夹，条目暂存在 VS Code 全局状态中；' +
+          '两者不会自动互相迁移，需手动复制数据文件。'
+    this.options.onWarning?.(`数据源已切换：${fromKind} → ${toKind}。${hint}`)
   }
 
   private readConfiguredPath(): string {
@@ -166,15 +191,28 @@ export class StorageController implements vscode.Disposable {
     return this.options.shouldAutoReload ? this.options.shouldAutoReload() : true
   }
 
-  /** 外部修改：300ms 防抖合并；自身保存后短窗口内的事件忽略（防 reload 回环）。 */
+  /**
+   * 外部修改：300ms 防抖合并；自身保存后短窗口内的变更事件忽略（防 reload 回环）。
+   *
+   * 因果判定（R-C-5）：以**事件产生时刻** eventAt（而非定时器触发时的 Date.now()）
+   * 与最近一次保存时刻比较——
+   * - 事件早于最近保存 → 保存尚未发生，事件不可能是自身写入 → 真实外部修改，reload
+   *   （旧实现按定时器触发时刻算窗口，会把「保存前瞬间的用户编辑」误判为自身写入丢弃）；
+   * - 事件晚于保存且仍在抑制窗口内 → 自身写入回声，忽略。
+   */
   private scheduleExternalReload(): void {
     if (!this.shouldAutoReload() || this.reloadTimer) {
       return
     }
+    const eventAt = Date.now() // 事件产生时刻，而非定时器触发时刻
     this.reloadTimer = setTimeout(() => {
       this.reloadTimer = undefined
       const lastPersistAt = this.service.lastPersistAt
-      if (lastPersistAt !== undefined && Date.now() - lastPersistAt < SELF_WRITE_SUPPRESS_MS) {
+      if (
+        lastPersistAt !== undefined &&
+        eventAt >= lastPersistAt &&
+        eventAt - lastPersistAt < SELF_WRITE_SUPPRESS_MS
+      ) {
         return // 自身保存触发的文件事件
       }
       this.service.reload()
@@ -203,6 +241,14 @@ function sameStore(a: IItemStore, b: IItemStore): boolean {
     return a.fileUri.toString() === b.fileUri.toString()
   }
   return a instanceof MementoStore && b instanceof MementoStore
+}
+
+const STORE_KIND_FILE = '工作区文件'
+const STORE_KIND_MEMENTO = '全局状态'
+
+/** 数据源类型的人话标签（R-C-15 的切换提示用）。 */
+function storeKind(store: IItemStore): typeof STORE_KIND_FILE | typeof STORE_KIND_MEMENTO {
+  return store instanceof JsonFileStore ? STORE_KIND_FILE : STORE_KIND_MEMENTO
 }
 
 export type { CorruptionChoice, StoreCorruptedInfo }

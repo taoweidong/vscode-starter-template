@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { Locator, Page } from 'playwright/test'
 import { expect } from 'playwright/test'
 
@@ -6,8 +8,8 @@ import { expect } from 'playwright/test'
  *
  * - loadPage：在任何页面模块执行前注入 acquireVsCodeApi mock（单例语义：
  *   postMessage 记录到 window.__sent、getState 读 window.__state、setState 写回）
- *   与一组 --vscode-* 主题变量（Dark+ 近似值，令组件拿到真实主题外观），
- *   再打开 /harness/:pageId 并等待 Vue 挂载；
+ *   与一组 --vscode-* 主题变量（从 src/webview/ui/tokens.css 的回退值解析，
+ *   经 CSSOM 注入以适配 harness 的宿主级 CSP），再打开 /harness/:pageId 并等待 Vue 挂载；
  * - sendHost：按宿主行为在 window 上派发 message 事件（页面经 window 'message' 监听）；
  * - sent / lastSent：读取页面向宿主发出的消息记录；
  * - fieldControl：按字段 label 定位 SchemaForm 内的控件
@@ -25,7 +27,41 @@ declare global {
   }
 }
 
-/** acquireVsCodeApi mock + 主题变量（Dark+ 近似）。必须在模块执行前注入。 */
+/**
+ * 主题变量：从 src/webview/ui/tokens.css 的**回退值**解析而来（07 R-E-16）。
+ * 此前本文件手抄了第三份 --vscode-* 副本，tokens.css 改颜色后 e2e 主题不同步；
+ * 现在单一来源是 tokens.css 的 `var(--vscode-x, <fallback>)` 回退值。
+ */
+const TOKENS_CSS_PATH = resolve(process.cwd(), 'src/webview/ui/tokens.css')
+
+function parseThemeFallbacks(): Record<string, string> {
+  const css = readFileSync(TOKENS_CSS_PATH, 'utf8')
+  const theme: Record<string, string> = {}
+  for (const line of css.split(/\r?\n/)) {
+    const head = /^\s*--ui-[a-z0-9-]+\s*:\s*var\(\s*(--vscode-[A-Za-z0-9-]+)\s*,/.exec(line)
+    if (!head) {
+      continue
+    }
+    // 回退值里可能还嵌着一层 var(...)（如 --ui-surface），按括号配平截取
+    const rest = line.slice(head[0].length)
+    let depth = 1
+    let end = 0
+    for (; end < rest.length; end++) {
+      if (rest[end] === '(') {
+        depth += 1
+      } else if (rest[end] === ')' && --depth === 0) {
+        break
+      }
+    }
+    const fallback = rest.slice(0, end).trim()
+    if (fallback) {
+      theme[head[1]] = fallback
+    }
+  }
+  return theme
+}
+
+/** acquireVsCodeApi mock + 主题变量。必须在页面模块执行前注入（addInitScript）。 */
 const INIT_SCRIPT = `
   window.__sent = [];
   window.__state = undefined;
@@ -35,49 +71,11 @@ const INIT_SCRIPT = `
     setState(state) { window.__state = state; }
   };
   window.acquireVsCodeApi = function () { return window.__vscodeApiMock; };
-  var themeStyle = document.createElement('style');
-  themeStyle.textContent = ':root{'
-    + '--vscode-foreground:#cccccc;'
-    + '--vscode-descriptionForeground:#cccccc99;'
-    + '--vscode-disabledForeground:rgba(204,204,204,0.6);'
-    + '--vscode-list-activeSelectionForeground:#ffffff;'
-    + '--vscode-list-inactiveSelectionForeground:#cccccc;'
-    + '--vscode-editor-background:#1e1e1e;'
-    + '--vscode-editorWidget-background:#252526;'
-    + '--vscode-editorWidget-border:#454545;'
-    + '--vscode-list-hoverBackground:rgba(128,128,128,0.12);'
-    + '--vscode-list-activeSelectionBackground:#04395e;'
-    + '--vscode-widget-border:#454545;'
-    + '--vscode-panel-border:#454545;'
-    + '--vscode-input-background:#3c3c3c;'
-    + '--vscode-input-foreground:#cccccc;'
-    + '--vscode-input-border:transparent;'
-    + '--vscode-input-placeholderForeground:#989898;'
-    + '--vscode-button-background:#0e639c;'
-    + '--vscode-button-foreground:#ffffff;'
-    + '--vscode-button-hoverBackground:#1177bb;'
-    + '--vscode-button-secondaryBackground:#3a3d41;'
-    + '--vscode-button-secondaryForeground:#ffffff;'
-    + '--vscode-button-secondaryHoverBackground:#45494e;'
-    + '--vscode-focusBorder:#007fd4;'
-    + '--vscode-errorForeground:#f48771;'
-    + '--vscode-inputValidation-errorBorder:#be1100;'
-    + '--vscode-inputValidation-errorBackground:#5a1d1d;'
-    + '--vscode-checkbox-background:#3c3c3c;'
-    + '--vscode-checkbox-border:#3c3c3c;'
-    + '--vscode-checkbox-foreground:#cccccc;'
-    + '--vscode-checkbox-select-background:#0e639c;'
-    + '--vscode-badge-background:#4d4d4d;'
-    + '--vscode-badge-foreground:#ffffff;'
-    + '--vscode-textLink-foreground:#3794ff;'
-    + '--vscode-textLink-activeForeground:#3794ff;'
-    + '--vscode-keybindingLabel-border:rgba(204,204,204,0.4);'
-    + '--vscode-keybindingLabel-background:rgba(128,128,128,0.17);'
-    + '--vscode-keybindingLabel-foreground:#cccccc;'
-    + '--vscode-font-family:system-ui,\\'Segoe UI\\',sans-serif;'
-    + '--vscode-font-size:13px;'
-    + '}';
-  document.documentElement.prepend(themeStyle);
+  // R-E-11：harness 与宿主同 CSP（style-src 无 'unsafe-inline'）——
+  // <style> 元素与 style="" 属性都会被静默拦截，主题变量必须走 CSSOM setProperty。
+  var THEME = ${JSON.stringify(parseThemeFallbacks())};
+  var root = document.documentElement;
+  for (var name in THEME) { root.style.setProperty(name, THEME[name]); }
 `
 
 /** 打开 /harness/:pageId 并等待 Vue 挂载出 AppShell。addInitScript 对后续导航同样生效。 */

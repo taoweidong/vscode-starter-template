@@ -47,7 +47,7 @@ withDefaults(
   align-items: center;
   justify-content: center;
   gap: var(--ui-space-1);
-  min-width: 72px;
+  min-width: var(--ui-btn-min-width); /* R-U-4 */
   height: var(--ui-control-height);
   padding: var(--ui-btn-pad-y) var(--ui-btn-pad-x);
   border: 1px solid transparent;

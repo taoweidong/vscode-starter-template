@@ -98,11 +98,13 @@ export function normalizeItem(value: unknown, index: number): NormalizedItemResu
 
   const readTimestamp = (key: 'createdAt' | 'updatedAt'): string => {
     const raw = value[key]
-    if (typeof raw === 'string' && raw.trim()) {
+    // R-C-9：除「非空字符串」外还要求 Date.parse 可解析——
+    // "昨天" 之类可通过旧守卫，渲染时 new Date(...).toLocaleString() 产出 "Invalid Date"
+    if (typeof raw === 'string' && raw.trim() && !Number.isNaN(Date.parse(raw))) {
       return raw
     }
     if (raw !== undefined && raw !== null) {
-      warnings.push(`${at}：${key} 非法，已补当前时间。`)
+      warnings.push(`${at}：${key} 不是合法日期，已补当前时间。`)
     }
     return now
   }

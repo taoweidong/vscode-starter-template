@@ -94,8 +94,8 @@ provide(VFORM_FIELD_KEY, { controlId, invalid, describedBy } satisfies VFormFiel
 
 .v-visually-hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--ui-hairline);
+  height: var(--ui-hairline);
   margin: -1px;
   padding: 0;
   overflow: hidden;

@@ -21,14 +21,24 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string[]): void }>()
 const text = ref(joinTags(props.modelValue))
 const tags = ref<string[]>(parseTags(text.value))
 
+/**
+ * 外部值变化（编辑回填 / 草稿恢复）时同步回显。
+ * R-U-1：以「解析语义相等」而非「文本相等」作为覆盖条件——用户刚输入尾随分隔符
+ * （"a," / "a，"）时解析结果与原数组语义相同，若按文本比较会被回显值覆盖删除，
+ * 逗号分隔输入被系统性破坏（中文输入法上屏「，」同样被吞）。
+ */
 watch(
   () => props.modelValue,
   (value) => {
-    const joined = joinTags(value)
-    if (joined !== text.value) {
-      text.value = joined
-      tags.value = parseTags(joined)
+    const externalTags = parseTags(joinTags(value))
+    const same =
+      externalTags.length === tags.value.length &&
+      externalTags.every((tag, index) => tag === tags.value[index])
+    if (!same) {
+      text.value = joinTags(value)
+      tags.value = externalTags
     }
+    // 语义相同时保留 text（含未完成的分隔符），不打断用户继续输入
   }
 )
 

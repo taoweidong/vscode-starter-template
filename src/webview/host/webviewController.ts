@@ -87,6 +87,18 @@ export function webviewViewType(pageId: WebviewPageId | string): string {
 /** 提交在途超时（毫秒）：超时自动解锁并回 error。 */
 const SUBMIT_TIMEOUT_MS = 10_000
 
+/**
+ * 提交处理超时（内部判定用，R-C-10）：
+ * 不再直接把「超时」下发给页面——业务任务随后可能成功，抢先报 error 会让用户
+ * 同时看到「超时」与「已保存」；面板关闭后重试还可能造成重复创建。
+ * 超时只记日志并保持页面提交中态，最终响应由任务自身结果负责。
+ */
+class SubmitTimeoutError extends Error {
+  constructor() {
+    super('提交处理超时（10 秒），已自动解锁')
+  }
+}
+
 function safeInspect(value: unknown): string {
   try {
     return JSON.stringify(value) ?? String(value)
@@ -162,6 +174,8 @@ export class WebviewController {
   private messageDisposable: vscode.Disposable | undefined
   private disposed = false
   private dirty = false
+  /** 取消流程在途标志（R-U-9）：连点「取消」/ 连按 Esc 只弹一次模态，不重复 onCancel。 */
+  private cancelPending = false
   private submitting = false
   private submitTimer: ReturnType<typeof setTimeout> | undefined
   private restoredState: unknown
@@ -224,21 +238,33 @@ export class WebviewController {
     return true
   }
 
-  /** 取消 / Esc：dirty 时先模态确认，拒绝则面板保持打开（页面无感知，协议不变）。 */
+  /**
+   * 取消 / Esc：dirty 时先模态确认，拒绝则面板保持打开（页面无感知，协议不变）。
+   * R-U-9：确认模态弹出期间用户可再次点「取消」/ 按 Esc，此前会叠加多个模态、
+   * 且确认后 onCancel 被调用多次；用 cancelPending 保证一次只走一遍取消流程。
+   */
   private async handleCancel(): Promise<void> {
-    if (this.dirty) {
-      const discard = '放弃修改并关闭'
-      const choice = await vscode.window.showWarningMessage(
-        '当前有未保存的修改，关闭面板将丢失这些修改。',
-        { modal: true },
-        discard
-      )
-      if (choice !== discard) {
-        return // 用户拒绝：面板保持打开，页面状态不变
-      }
+    if (this.cancelPending) {
+      return
     }
-    this.dirty = false
-    this.deps.onCancel?.()
+    this.cancelPending = true
+    try {
+      if (this.dirty) {
+        const discard = '放弃修改并关闭'
+        const choice = await vscode.window.showWarningMessage(
+          '当前有未保存的修改，关闭面板将丢失这些修改。',
+          { modal: true },
+          discard
+        )
+        if (choice !== discard) {
+          return // 用户拒绝：面板保持打开，页面状态不变
+        }
+      }
+      this.dirty = false
+      this.deps.onCancel?.()
+    } finally {
+      this.cancelPending = false
+    }
   }
 
   reveal(): void {
@@ -328,21 +354,30 @@ export class WebviewController {
   }
 
   private postInit(): void {
-    const payload = this.deps.buildInit
-      ? this.deps.buildInit({ persistedState: this.restoredState })
-      : { schema: [], value: null }
-    if (payload instanceof Promise) {
-      void payload.then(
-        (resolved) => this.emitInit(resolved),
-        (err: unknown) => {
-          const reason = err instanceof Error ? err.message : String(err)
-          this.deps.log(`init 载荷构造失败：${reason}`)
-          this.post({ type: 'error', message: `页面初始化失败：${reason}` })
-        }
-      )
-    } else {
-      this.emitInit(payload)
+    try {
+      const payload = this.deps.buildInit
+        ? this.deps.buildInit({ persistedState: this.restoredState })
+        : { schema: [], value: null }
+      if (payload instanceof Promise) {
+        void payload.then(
+          (resolved) => this.emitInit(resolved),
+          (err: unknown) => this.postInitFailed(err)
+        )
+      } else {
+        this.emitInit(payload)
+      }
+    } catch (err) {
+      // R-U-9：同步 buildInit 抛错此前会直接炸掉 onDidReceiveMessage 监听器
+      // （Promise 分支有 catch，同步分支没有），页面停在永久 loading 而无任何提示。
+      this.postInitFailed(err)
     }
+  }
+
+  /** init 载荷构造失败：记录并如实告知页面（与 Promise 分支同一处理）。 */
+  private postInitFailed(err: unknown): void {
+    const reason = err instanceof Error ? err.message : String(err)
+    this.deps.log(`init 载荷构造失败：${reason}`)
+    this.post({ type: 'error', message: `页面初始化失败：${reason}` })
   }
 
   /** 组装并下发 init 消息（persisted 恢复状态随 extra 传回，页面自行决定是否恢复草稿）。 */
@@ -384,21 +419,24 @@ export class WebviewController {
       await Promise.race([
         task,
         new Promise<never>((_, reject) => {
-          this.submitTimer = setTimeout(
-            () => reject(new Error('提交处理超时（10 秒），已自动解锁')),
-            SUBMIT_TIMEOUT_MS
-          )
+          this.submitTimer = setTimeout(() => reject(new SubmitTimeoutError()), SUBMIT_TIMEOUT_MS)
         }),
       ])
       this.post({ type: 'submitAck', ok: true })
     } catch (err) {
-      // 业务层可通过给 err 附加 field 字符串属性，让页面把错误定位到具体控件
-      const field = (err as { field?: unknown } | null | undefined)?.field
-      this.post({
-        type: 'error',
-        message: err instanceof Error ? err.message : String(err),
-        ...(typeof field === 'string' ? { field } : {}),
-      })
+      if (err instanceof SubmitTimeoutError) {
+        // R-C-10：超时只记录日志并保持页面提交中态——最终响应以业务任务落定为准，
+        // 迟到的成功也如实下发 submitAck（避免「超时 + 已保存」并存与重试重复创建）
+        this.deps.log('提交处理超时（10 秒）：已解锁，等待业务任务落定后再如实下发结果')
+        // 不 await：立即走 finally 解锁提交（任务可能长期悬挂，永久锁死比超时更糟），
+        // 任务落定后由它自己的结果负责最终响应
+        void task.then(
+          () => this.post({ type: 'submitAck', ok: true }),
+          (e: unknown) => this.postError(e)
+        )
+        return
+      }
+      this.postError(err)
     } finally {
       if (this.submitTimer) {
         clearTimeout(this.submitTimer)
@@ -411,6 +449,19 @@ export class WebviewController {
   /** 宿主 → 页面：下发协议消息（面板已关闭时静默丢弃）。 */
   post(message: HostMessage): void {
     void this.panel?.webview.postMessage(message)
+  }
+
+  /**
+   * 宿主 → 页面：错误下发。
+   * 业务层可通过给 err 附加 field 字符串属性，让页面把错误定位到具体控件。
+   */
+  private postError(err: unknown): void {
+    const field = (err as { field?: unknown } | null | undefined)?.field
+    this.post({
+      type: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      ...(typeof field === 'string' ? { field } : {}),
+    })
   }
 
   /** 用户关闭面板：只清理资源，不反向 panel.dispose（幂等标志防重入）。 */

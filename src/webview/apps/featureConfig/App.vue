@@ -114,8 +114,16 @@ function onCancel(): void {
     <p v-if="hostError" class="feature-config__error" role="alert">{{ hostError }}</p>
 
     <template #actions>
-      <VButton variant="secondary" :disabled="submitting" @click="onCancel">取消</VButton>
-      <VButton variant="primary" icon="save" :loading="submitting" @click="requestSubmit"
+      <!-- R-U-5：init 到达前禁用保存/取消——空 schema 恒过校验，会把空草稿提交到宿主 -->
+      <VButton variant="secondary" :disabled="!initialized || submitting" @click="onCancel"
+        >取消</VButton
+      >
+      <VButton
+        variant="primary"
+        icon="save"
+        :loading="submitting"
+        :disabled="!initialized || submitting"
+        @click="requestSubmit"
         >保存</VButton
       >
     </template>

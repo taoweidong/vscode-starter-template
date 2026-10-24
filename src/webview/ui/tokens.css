@@ -48,6 +48,8 @@
   --ui-check-bg: var(--vscode-checkbox-background, #3c3c3c);
   --ui-check-border: var(--vscode-checkbox-border, #3c3c3c);
   --ui-check-fg: var(--vscode-checkbox-foreground, #cccccc);
+  /* R-U-4：accent-color 原先在 VCheckbox 内直接消费 --vscode-*，绕过了令牌层 */
+  --ui-check-selected: var(--vscode-checkbox-select-background, var(--ui-focus));
 
   /* ---- 徽标 / 链接 / 键帽 ---- */
   --ui-badge-bg: var(--vscode-badge-background, #4d4d4d);
@@ -81,6 +83,21 @@
   --ui-input-pad-y: 4px;
   /* 04 §3：按钮内边距 4px 14px（14px 为登记刻度） */
   --ui-btn-pad-x: 14px;
+  /* R-U-10：进度条填充——语义属 progress 而非 focus，不再复用 --ui-focus */
+  --ui-progress: var(--vscode-progressBar-background, var(--ui-focus));
+  /* R-U-4：此前在组件/页面层硬编码的隐式几何规格，按 04 §9.4 登记 */
+  --ui-badge-size: 16px; /* VBadge 徽标最小宽/高 */
+  --ui-toolbar-divider-height: 16px; /* VToolbarDivider 高 */
+  --ui-btn-min-width: 72px; /* 文字按钮最小宽 */
+  --ui-empty-icon-size: 24px; /* VEmptyState 图标字号 */
+  --ui-progress-height: 8px; /* 进度条轨道高 */
+  /* R-U-4 第二步续：页面层（apps/）此前硬编码的布局规格，一并登记 */
+  --ui-hairline: 1px; /* 发丝线宽：分隔线 / 视觉隐藏，非间距刻度 */
+  --ui-form-max-width: 560px; /* 表单字段容器 / 画廊卡片最大宽 */
+  --ui-shell-width-form: 560px; /* AppShell width=form */
+  --ui-shell-width-settings: 720px; /* AppShell width=settings */
+  --ui-shell-width-wizard: 960px; /* AppShell width=wizard */
+  --ui-file-list-max-height: 320px; /* 导入向导文件列表滚动区最大高 */
 }
 
 /* 页面基础样式：正文 13px、行高 1.5、背景透明跟随宿主 */

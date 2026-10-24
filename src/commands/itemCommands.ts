@@ -241,7 +241,8 @@ export function registerItemCommands(register: CommandRegistrar, deps: ItemComma
       } catch (err) {
         showError(err)
       }
-      // 操作后重新读取条目（优先级等已变化），菜单继续停留在同一目标上
+      // 操作后重新读取条目（优先级等已变化）：stayInMenu 时菜单继续停留在同一目标上；
+      // 否则（编辑 / 克隆 / 删除等会转移焦点的操作）置 undefined 退出菜单循环（R-C-18）
       current = stayInMenu ? await service.get(current.id) : undefined
     }
   })

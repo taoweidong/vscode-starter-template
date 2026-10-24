@@ -21,20 +21,38 @@ export interface ReloadOptions {
  * - 所有写操作经串行队列（enqueue 链式 Promise），后写不会覆盖先写；
  * - persist 采用「构造 next → save 成功 → 才提交缓存并 fire」：失败时缓存整体失效，
  *   下次操作从存储重读，杜绝脏缓存导致的重复 / 幻影数据；
- * - reload 带 generation 计数，过期加载结果不落缓存。
+ * - reload 带 generation 计数，过期加载结果不落缓存；
+ * - 缓存以 { items, searchTexts } 快照同源维护（R-C-1）：过滤按下标索引
+ *   搜索文本，两数组必须同世代——过期结果也整体返回，调用方自洽不错配。
  *
  * 批量契约（T5.2）：createMany / updateMany / removeMany 均为
  * 「单次读盘（队列内 ensureLoaded）→ 单次写盘 → 单次变更事件」的事务语义，
  * 批量导入 / 批量改优先级等场景不再产生 N 次写盘与 N 次刷新。
  */
+
+/** 条目快照：items 与按下标对齐的搜索文本同源同生命周期（R-C-1）。 */
+interface SearchSnapshot {
+  items: Item[]
+  searchTexts: string[]
+}
+
+/**
+ * 模块级纯函数：构造与 items 按下标对齐的搜索文本（小写拼接）。
+ * 过滤只做 includes；扩展字段不在搜索范围（与既有行为一致）。
+ */
+export function buildSearchTexts(items: Item[]): string[] {
+  return items.map((item) =>
+    [item.name, item.category, item.description, item.tags.join(' ')].join(' ').toLowerCase()
+  )
+}
+
 export class ItemService {
   private store: IItemStore
-  private cache: Item[] | undefined
-  /** 与 cache 平行维护的搜索文本（小写拼接），过滤只做 includes。 */
-  private searchTexts: string[] = []
+  /** 数据缓存快照（items + 平行搜索文本），undefined 表示尚未加载 / 已失效。 */
+  private snapshot: SearchSnapshot | undefined
   private filter = ''
   /** 首载单飞：并发 ensureLoaded 共享同一次 load。 */
-  private loadPromise: Promise<Item[]> | undefined
+  private loadPromise: Promise<SearchSnapshot> | undefined
   /** 写操作串行队列的尾指针。 */
   private writeQueue: Promise<unknown> = Promise.resolve()
   /** reload 世代号：每次失效缓存 +1，晚到的旧 load 结果据此丢弃。 */
@@ -65,27 +83,29 @@ export class ItemService {
 
   /** 列出条目（自动应用当前过滤关键字）。 */
   async list(): Promise<Item[]> {
-    const items = await this.ensureLoaded()
+    const { items, searchTexts } = await this.ensureLoaded()
     const keyword = this.filter.trim().toLowerCase()
     if (!keyword) {
       return [...items]
     }
-    return items.filter((_, index) => this.searchTexts[index]?.includes(keyword) ?? false)
+    // 过滤只用本快照内的搜索文本：过期结果整体返回，两数组按下标不错配（R-C-1）
+    return items.filter((_, index) => searchTexts[index]?.includes(keyword) ?? false)
   }
 
   /** 列出全部条目（忽略当前过滤——供选择器等需要完整集合的场景）。 */
   async listAll(): Promise<Item[]> {
-    return [...(await this.ensureLoaded())]
+    const { items } = await this.ensureLoaded()
+    return [...items]
   }
 
   async get(id: string): Promise<Item | undefined> {
-    return (await this.ensureLoaded()).find((item) => item.id === id)
+    return (await this.ensureLoaded()).items.find((item) => item.id === id)
   }
 
   /** 已有的分类列表（供表单 datalist 提示）。 */
   async getCategories(): Promise<string[]> {
     const categories = new Set(
-      (await this.ensureLoaded()).map((item) => item.category).filter(Boolean)
+      (await this.ensureLoaded()).items.map((item) => item.category).filter(Boolean)
     )
     return [...categories].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
   }
@@ -108,7 +128,7 @@ export class ItemService {
   async create(draft: ItemDraft): Promise<Item> {
     return this.enqueue(async () => {
       const input = this.validate(draft)
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const now = new Date().toISOString()
       const item: Item = { id: createId(), ...input, createdAt: now, updatedAt: now }
       await this.persist([...items, item])
@@ -124,7 +144,7 @@ export class ItemService {
     // 先全量校验（队列外 fail-fast）：任一失败直接抛 ItemValidationError，不触发任何写
     const inputs = drafts.map((draft) => this.validate(draft))
     return this.enqueue(async () => {
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const now = new Date().toISOString()
       const created: Item[] = inputs.map((input) => ({
         id: createId(),
@@ -140,7 +160,7 @@ export class ItemService {
   async update(id: string, draft: ItemDraft): Promise<Item> {
     return this.enqueue(async () => {
       const input = this.validate(draft)
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const index = items.findIndex((item) => item.id === id)
       if (index < 0) {
         throw new ItemValidationError('条目不存在，可能已被删除。')
@@ -159,7 +179,7 @@ export class ItemService {
    */
   async updateMany(updates: { id: string; patch: Partial<ItemDraft> }[]): Promise<Item[]> {
     return this.enqueue(async () => {
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const next = [...items]
       const results: Item[] = []
       const indexById = new Map(items.map((item, index) => [item.id, index] as const))
@@ -183,7 +203,7 @@ export class ItemService {
 
   async remove(id: string): Promise<Item | undefined> {
     return this.enqueue(async () => {
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const target = items.find((item) => item.id === id)
       if (!target) {
         return undefined
@@ -200,7 +220,7 @@ export class ItemService {
    */
   async removeMany(ids: string[]): Promise<{ removed: Item[]; missing: string[] }> {
     return this.enqueue(async () => {
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const existingIds = new Set(items.map((item) => item.id))
       const requested = [...new Set(ids)] // 输入去重，missing 按首次出现顺序报告
       const missing = requested.filter((id) => !existingIds.has(id))
@@ -216,7 +236,7 @@ export class ItemService {
 
   async duplicate(id: string): Promise<Item> {
     return this.enqueue(async () => {
-      const items = await this.ensureLoaded()
+      const items = (await this.ensureLoaded()).items
       const source = items.find((item) => item.id === id)
       if (!source) {
         throw new ItemValidationError('条目不存在，可能已被删除。')
@@ -257,36 +277,29 @@ export class ItemService {
     return result.draft
   }
 
-  /** 缓存失效：世代号 +1，丢弃缓存与在途单飞。 */
+  /** 缓存失效：世代号 +1，丢弃缓存快照与在途单飞。 */
   private invalidate(): void {
     this.reloadGeneration += 1
-    this.cache = undefined
-    this.searchTexts = []
+    this.snapshot = undefined
     this.loadPromise = undefined
   }
 
-  /** 缓存平行维护的搜索文本（小写拼接），过滤只做 includes。 */
-  private rebuildSearchIndex(items: Item[]): void {
-    this.searchTexts = items.map((item) =>
-      [item.name, item.category, item.description, item.tags.join(' ')].join(' ').toLowerCase()
-    )
-  }
-
-  private async ensureLoaded(): Promise<Item[]> {
-    if (this.cache) {
-      return this.cache
+  private async ensureLoaded(): Promise<SearchSnapshot> {
+    if (this.snapshot) {
+      return this.snapshot
     }
     if (!this.loadPromise) {
       const generation = this.reloadGeneration
       this.loadPromise = this.store.load().then(
         (items) => {
           this.loadPromise = undefined
-          // 过期结果（期间发生过 reload / replaceStore）不落缓存，仅返回给本次调用
+          // 快照整体构造：过期结果（期间发生过 reload / replaceStore）不落缓存，
+          // 但 items 与 searchTexts 仍同源返回给本次调用方（R-C-1）
+          const next: SearchSnapshot = { items, searchTexts: buildSearchTexts(items) }
           if (generation === this.reloadGeneration) {
-            this.cache = items
-            this.rebuildSearchIndex(items)
+            this.snapshot = next
           }
-          return items
+          return next
         },
         (err) => {
           this.loadPromise = undefined
@@ -305,7 +318,7 @@ export class ItemService {
   }
 
   /**
-   * 提交写入：save 成功才更新缓存并广播；失败则整体失效缓存（下次操作重新 load）。
+   * 提交写入：save 成功才更新缓存快照并广播；失败则整体失效缓存（下次操作重新 load）。
    * 注意 items 必须是新构造的数组（不可原地修改缓存）。
    */
   private async persist(next: Item[]): Promise<void> {
@@ -315,8 +328,8 @@ export class ItemService {
       this.invalidate()
       throw err
     }
-    this.cache = next
-    this.rebuildSearchIndex(next)
+    // 缓存快照与搜索文本同源更新（R-C-1）：写后立即可按新值过滤
+    this.snapshot = { items: next, searchTexts: buildSearchTexts(next) }
     this.lastPersistAtValue = Date.now()
     this._onDidChangeItems.fire()
   }

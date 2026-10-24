@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { CONFIG, STORAGE } from '../../constants'
 import { resolveStorageUri, storageRelativePath } from '../../services/storagePath'
+import { STORAGE_SCHEMA_VERSION } from '../../services/stores/jsonFileStore'
 import { environmentTask } from '../../tasks/environmentTask'
 import { TaskSignalSource } from '../../tasks/taskRunner'
 import type { TaskResult } from '../../tasks/types'
@@ -100,7 +101,15 @@ export function createInitSteps(options?: CreateInitStepsOptions): InitStep[] {
           return '数据文件已存在，跳过创建。'
         }
         await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'))
-        await vscode.workspace.fs.writeFile(fileUri, Buffer.from('[]', 'utf8'))
+        // R-C-12：写 v2 信封（与 save 一致）——写 '[]' 会让此后每次 load 都触发
+        // 「旧版数组格式」告警，直到首次保存才迁移
+        await vscode.workspace.fs.writeFile(
+          fileUri,
+          Buffer.from(
+            `${JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, items: [] }, null, 2)}\n`,
+            'utf8'
+          )
+        )
         return `已创建：${relative}`
       },
     },

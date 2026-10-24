@@ -1,10 +1,10 @@
 import * as vscode from 'vscode'
 import { getFeatureValue } from '../features/featureConfig/featureFlags'
-import type { Item, ItemDraft, Priority } from '../models/item'
-import { isPriority } from '../models/item'
+import type { Item, ItemDraft } from '../models/item'
 import { toDraft } from '../domain/itemSchema'
 import { ItemService } from '../services/itemService'
 import { FORM_SCHEMA, toFieldDefs } from '../webview/formSchema'
+import { stableStringify } from '../webview/shared/stableStringify'
 import {
   WebviewController,
   type BuildInitContext,
@@ -217,7 +217,7 @@ function notifySuccess(message: string): void {
   }
 }
 
-/** 两个目标是否等价（同模式 + 同条目 / 同初值）。 */
+/** 两个目标是否等价（同模式 + 同条目 / 同初值；初值按键序无关地稳定比较，R-C-13）。 */
 function sameTarget(a: ItemFormTarget | undefined, b: ItemFormTarget): boolean {
   if (!a) {
     return false
@@ -225,7 +225,7 @@ function sameTarget(a: ItemFormTarget | undefined, b: ItemFormTarget): boolean {
   if (a.mode !== b.mode || a.itemId !== b.itemId) {
     return false
   }
-  return JSON.stringify(a.initial ?? {}) === JSON.stringify(b.initial ?? {})
+  return stableStringify(a.initial ?? {}) === stableStringify(b.initial ?? {})
 }
 
 /** 持久化状态 → 表单目标；匹配不上（或无持久化）回退空白新增。 */
@@ -250,16 +250,30 @@ async function targetFromPersisted(
 
 /** Item → 全字段草稿（剥离 id / createdAt / updatedAt，含扩展字段）由领域层提供（M5-T5.1）。 */
 
-/** 页面字段集 → ItemDraft（结构清洗；校验交给服务层）。 */
+/** 已知草稿字段（src/domain/itemSchema.ts ITEM_FIELD_DEFS 的 key，单一来源的宿主侧镜像）。 */
+const KNOWN_DRAFT_KEYS = new Set(['name', 'category', 'description', 'priority', 'tags'])
+/** 系统元字段：提交草稿不得携带（id / 时间戳由服务层统一生成）。 */
+const META_KEYS = new Set(['id', 'createdAt', 'updatedAt'])
+
+/**
+ * 页面字段集 → ItemDraft（R-C-2 / R-C-14）：
+ * - 已知字段放行原值、未知扩展字段原样透传（「加字段零改动」在编辑链路不断裂）；
+ * - 不再做 String() / isPriority 预清洗——那会把对象 name 洗成 "[object Object]"
+ *   绕过必填校验（R-C-14）；类型校验与清洗统一交给服务层 coerceDraft，
+ *   与 createItemFormDeps 注释「校验交给服务层」名副其实。
+ */
 function toItemDraft(draft: Record<string, unknown>): ItemDraft {
-  return {
-    name: String(draft.name ?? ''),
-    category: String(draft.category ?? ''),
-    description: String(draft.description ?? ''),
-    priority: (isPriority(draft.priority) ? draft.priority : 'medium') as Priority,
-    // 只透传字符串标签：数字/布尔等非字符串项不过滤掉，交由领域层 coerceTagsField 校验
-    tags: Array.isArray(draft.tags)
-      ? draft.tags.filter((tag): tag is string => typeof tag === 'string')
-      : [],
+  const result: Record<string, unknown> = {
+    name: draft.name,
+    category: draft.category,
+    description: draft.description,
+    priority: draft.priority,
+    tags: draft.tags,
   }
+  for (const [key, value] of Object.entries(draft)) {
+    if (!KNOWN_DRAFT_KEYS.has(key) && !META_KEYS.has(key)) {
+      result[key] = value // 扩展字段透传
+    }
+  }
+  return result as ItemDraft
 }

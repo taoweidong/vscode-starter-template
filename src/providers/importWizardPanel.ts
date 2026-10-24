@@ -1,3 +1,4 @@
+import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
 import type { ItemDraft } from '../models/item'
 import type { ItemService } from '../services/itemService'
@@ -166,9 +167,27 @@ export function createImportWizardDeps(
     await post({ type: 'selectFolder', folder: picks && picks.length > 0 ? picks[0].fsPath : null })
   }
 
+  /**
+   * 页面回传的文件夹路径 → 安全 Uri（R-C-11）：拒绝空 / 含 NUL / 非绝对路径。
+   * 页面与扩展同源，风险有限，但相对路径的基准目录不可控，属「宿主对页面消息
+   * 深度校验」的缺口。不做「必须位于工作区内」限制——导入向导本就支持从工作区外选取。
+   */
+  function toSafeFolderUri(folder: string): vscode.Uri | undefined {
+    const raw = (folder ?? '').trim()
+    if (!raw || raw.includes('\0')) {
+      return undefined
+    }
+    const uri = vscode.Uri.file(raw)
+    return nodePath.isAbsolute(uri.fsPath) ? uri : undefined
+  }
+
   async function previewFolder(folder: string): Promise<void> {
+    const folderUri = toSafeFolderUri(folder)
+    if (!folderUri) {
+      await post({ type: 'error', message: '文件夹路径不合法：请使用绝对路径，且路径不能为空。' })
+      return
+    }
     try {
-      const folderUri = vscode.Uri.file(folder)
       const entries = await vscode.workspace.fs.readDirectory(folderUri)
       const files = entries
         // 符号链接到文件时 readDirectory 返回 File|SymbolicLink（位或），位运算判定避免漏扫

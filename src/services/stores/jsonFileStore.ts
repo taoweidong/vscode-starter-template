@@ -19,6 +19,13 @@ import type { IItemStore } from './itemStore'
 /** 当前存储格式版本。 */
 export const STORAGE_SCHEMA_VERSION = 2
 
+/**
+ * 同一文件连续损坏的重试窗口（R-C-3）：窗口内的再次损坏只抛错，
+ * 不重复备份、不重复弹恢复模态——「一次明确的事故」不会演变成弹窗风暴 + 磁盘垃圾。
+ * 超出窗口（文件可能已被用户修好）才重新走完整恢复流程。
+ */
+export const CORRUPTION_RETRY_WINDOW_MS = 60_000
+
 /** 损坏事件上下文：原文件、备份文件与原因。 */
 export interface StoreCorruptedInfo {
   originalUri: vscode.Uri
@@ -52,6 +59,9 @@ export class StoreCorruptedError extends Error {
 }
 
 export class JsonFileStore implements IItemStore {
+  /** 上次损坏恢复的记录（时间戳 + 上下文）：窗口内连续损坏只处理一次（R-C-3）。 */
+  private lastCorruption: { at: number; info: StoreCorruptedInfo } | undefined
+
   constructor(
     public readonly fileUri: vscode.Uri,
     private readonly options: JsonFileStoreOptions = {}
@@ -131,18 +141,36 @@ export class JsonFileStore implements IItemStore {
    * 损坏恢复（P0-01）：复制备份（不移走原文件）→ 交上层决策。
    * 只有用户明确选择「以空数据继续」才返回 []；其余情况抛 StoreCorruptedError，
    * 确保不会把损坏文件静默当成空数据覆盖掉。
+   *
+   * 终态缓存（R-C-3）：窗口内的连续损坏复用上次上下文直接抛错——
+   * 不重复 copy 备份、不重复调 onCorrupted（用户 abort 后不再弹窗风暴）。
    */
   private async recoverFromCorruption(reason: string): Promise<Item[]> {
+    const now = Date.now()
+    if (this.lastCorruption && now - this.lastCorruption.at < CORRUPTION_RETRY_WINDOW_MS) {
+      throw new StoreCorruptedError(this.lastCorruption.info)
+    }
     const dirUri = vscode.Uri.joinPath(this.fileUri, '..')
+    // 随机后缀：同毫秒二次损坏也不会覆盖前一份备份（R-C-19）
     const backupUri = vscode.Uri.joinPath(
       dirUri,
-      `${path.basename(this.fileUri.fsPath)}.corrupt-${Date.now()}.bak`
+      `${path.basename(this.fileUri.fsPath)}.corrupt-${now}-${randomUUID().slice(0, 8)}.bak`
     )
-    // 备份失败必须显式抛错：静默继续等于放弃用户数据
-    await vscode.workspace.fs.copy(this.fileUri, backupUri)
+    // 备份失败必须显式抛错（错误带原文件路径，便于用户定位处理；静默继续等于放弃用户数据）
+    try {
+      await vscode.workspace.fs.copy(this.fileUri, backupUri)
+    } catch (err) {
+      throw new Error(
+        `数据文件损坏且备份失败：无法将 ${this.fileUri.fsPath} 复制为 ${backupUri.fsPath}` +
+          `（${err instanceof Error ? err.message : String(err)}）。` +
+          `原文件保留在原位，请手动保存副本后再处理。`,
+        { cause: err }
+      )
+    }
 
     const info: StoreCorruptedInfo = { originalUri: this.fileUri, backupUri, reason }
     const handler = this.options.onCorrupted
+    this.lastCorruption = { at: now, info }
     if (!handler) {
       throw new StoreCorruptedError(info)
     }

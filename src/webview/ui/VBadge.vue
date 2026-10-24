@@ -21,8 +21,8 @@ defineProps<{
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-width: 16px;
-  height: 16px;
+  min-width: var(--ui-badge-size); /* R-U-4 */
+  height: var(--ui-badge-size);
   padding: 0 var(--ui-space-1);
   border-radius: var(--ui-radius);
   background: var(--ui-badge-bg);

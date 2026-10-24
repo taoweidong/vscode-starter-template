@@ -5,6 +5,7 @@ import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
 import type { Item } from '../../models/item'
 import {
+  CORRUPTION_RETRY_WINDOW_MS,
   JsonFileStore,
   StoreCorruptedError,
   type StoreCorruptedInfo,
@@ -168,6 +169,71 @@ describe('JsonFileStore', () => {
     const store = new JsonFileStore(fileUri, { onCorrupted: async () => 'abort' })
     await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
     expect(readRaw()).toBe('][')
+  })
+
+  it('R-C-3：连续两次 load（重试窗口内）只备份一次、只询问一次（损坏终态缓存）', async () => {
+    writeRaw('{corrupt')
+    const infos: StoreCorruptedInfo[] = []
+    const store = new JsonFileStore(fileUri, {
+      onCorrupted: async (info) => {
+        infos.push(info)
+        return 'abort' // 用户关掉恢复模态后的真实路径：不能再弹第二次
+      },
+    })
+    await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
+    await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
+    expect(infos).toHaveLength(1) // 只问一次
+    expect(listDir().filter((name) => name.endsWith('.bak'))).toHaveLength(1) // 只备份一次
+    expect(readRaw()).toBe('{corrupt') // 原文件始终未动
+    // 窗口内的二次抛错复用首次上下文（备份路径与首次一致，不产生新备份）
+    const secondError = await store.load().catch((e: unknown) => e)
+    expect(secondError).toBeInstanceOf(StoreCorruptedError)
+    expect((secondError as StoreCorruptedError).info.backupUri.fsPath).toBe(
+      infos[0].backupUri.fsPath
+    )
+    expect(infos).toHaveLength(1)
+  })
+
+  it('R-C-3：超出重试窗口后重新走完整恢复流程（文件可能已被修好，值得再问）', async () => {
+    vi.useFakeTimers()
+    try {
+      writeRaw('{corrupt')
+      let askCount = 0
+      const store = new JsonFileStore(fileUri, {
+        onCorrupted: async () => {
+          askCount += 1
+          return 'abort'
+        },
+      })
+      await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
+      expect(askCount).toBe(1)
+      vi.setSystemTime(Date.now() + CORRUPTION_RETRY_WINDOW_MS + 1000)
+      await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
+      expect(askCount).toBe(2) // 窗口外重新询问
+      expect(listDir().filter((name) => name.endsWith('.bak'))).toHaveLength(2) // 重新备份
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('R-C-19：备份名带随机后缀（同毫秒二次损坏不覆盖前一份）', async () => {
+    writeRaw('{corrupt')
+    const store = new JsonFileStore(fileUri, { onCorrupted: async () => 'abort' })
+    await expect(store.load()).rejects.toBeInstanceOf(StoreCorruptedError)
+    const backups = listDir().filter((name) => name.endsWith('.bak'))
+    expect(backups).toHaveLength(1)
+    expect(backups[0]).toMatch(/^items\.json\.corrupt-\d+-[0-9a-f]{8}\.bak$/)
+  })
+
+  it('R-C-19：备份 copy 失败时抛带原文件路径的明确错误', async () => {
+    writeRaw('{corrupt')
+    const copySpy = vi.spyOn(vscode.workspace.fs, 'copy').mockRejectedValue(new Error('disk error'))
+    const store = new JsonFileStore(fileUri, { onCorrupted: async () => 'continue-empty' })
+    // 错误信息必须带原文件路径：用户据此知道去救哪份数据
+    await expect(store.load()).rejects.toThrow(fileUri.fsPath)
+    copySpy.mockRestore()
+    expect(readRaw()).toBe('{corrupt') // 原文件未动
+    expect(listDir().filter((name) => name.endsWith('.bak'))).toHaveLength(0) // 无残留空备份
   })
 
   it('备份 copy 失败必须抛错（禁止静默返回空数组）', async () => {

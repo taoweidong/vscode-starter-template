@@ -22,6 +22,8 @@ const GLOB_CHARS = /[*?[\]]/
 
 /** Windows 盘符前缀（C:\ 或 C:/，含裸盘符 C:xxx）。 */
 const WINDOWS_DRIVE = /^[a-zA-Z]:/
+/** Windows 保留设备名（R-C-20：大小写不敏感，扩展名不影响判定）。 */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 
 /**
  * 把经白名单校验的相对配置解析为目标文件 Uri。
@@ -56,6 +58,14 @@ export function resolveStorageUri(root: vscode.Uri, configured: string): Storage
     .filter(Boolean)
   if (segments.some((segment) => segment === '..')) {
     return { ok: false, reason: '路径不允许包含 ..（不能逃逸出工作区）' }
+  }
+  // R-C-20：Windows 保留设备名按「首个点之前的部分」判定（con.json 同样不可用），
+  // 否则路径能过校验但后续 IO 必失败，用户只看到一个无上下文的 IO 错误
+  if (segments.some((segment) => WINDOWS_RESERVED.test(segment.split('.')[0] ?? ''))) {
+    return {
+      ok: false,
+      reason: '路径包含 Windows 保留设备名（CON / PRN / AUX / NUL / COM1-9 / LPT1-9）',
+    }
   }
   const uri = vscode.Uri.joinPath(root, ...segments)
   if (!isInsideRoot(root, uri)) {

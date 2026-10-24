@@ -34,7 +34,12 @@ test('importWizard：浏览选择文件夹 → 预览去重 → 执行进度 →
   await initWizard(page)
 
   await expect(page.locator('.app-shell__title')).toHaveText('批量导入条目')
-  await expect(page.getByLabel('文件夹路径')).toBeVisible()
+  // R-U-3：hint 经 aria-describedby 关联输入框（去重语义可被读屏播报）
+  const folderBox = page.getByLabel('文件夹路径')
+  await expect(folderBox).toBeVisible()
+  const describedBy = await folderBox.getAttribute('aria-describedby')
+  expect(describedBy).toBeTruthy()
+  await expect(page.locator(`#${describedBy}`)).toContainText('同名条目会自动跳过')
   // 空路径时「下一步」禁用
   await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
 
@@ -42,7 +47,7 @@ test('importWizard：浏览选择文件夹 → 预览去重 → 执行进度 →
   await page.getByRole('button', { name: '浏览…' }).click()
   await expectLastSentType(page, 'browseFolder')
   await sendHost(page, { type: 'selectFolder', folder: FOLDER })
-  await expect(page.locator('#wizard-folder')).toHaveValue(FOLDER)
+  await expect(page.getByLabel('文件夹路径')).toHaveValue(FOLDER)
   await expect(page.getByRole('button', { name: '下一步' })).toBeEnabled()
 
   // 下一步 → requestPreview
@@ -100,8 +105,8 @@ test('importWizard：浏览选择文件夹 → 预览去重 → 执行进度 →
 
   // 「再次导入」回到第一步，路径保留
   await page.getByRole('button', { name: '再次导入' }).click()
-  await expect(page.locator('#wizard-folder')).toBeVisible()
-  await expect(page.locator('#wizard-folder')).toHaveValue(FOLDER)
+  await expect(page.getByLabel('文件夹路径')).toBeVisible()
+  await expect(page.getByLabel('文件夹路径')).toHaveValue(FOLDER)
 })
 
 test('importWizard：执行中「取消导入」发出 cancelImport', async ({ page }) => {
@@ -109,7 +114,7 @@ test('importWizard：执行中「取消导入」发出 cancelImport', async ({ p
   await initWizard(page)
 
   // 直接真实输入路径进入预览
-  await page.locator('#wizard-folder').fill('D:/docs')
+  await page.getByLabel('文件夹路径').fill('D:/docs')
   await page.getByRole('button', { name: '下一步' }).click()
   await expectLastSentType(page, 'requestPreview')
   await sendHost(page, { type: 'importPreview', files: NEW_FILES })
@@ -125,7 +130,7 @@ test('importWizard：执行中「取消导入」发出 cancelImport', async ({ p
 test('importWizard：init 携带 presetFolder 时预填路径', async ({ page }) => {
   await loadPage(page, 'importWizard')
   await initWizard(page, { presetFolder: 'D:/preset/docs' })
-  await expect(page.locator('#wizard-folder')).toHaveValue('D:/preset/docs')
+  await expect(page.getByLabel('文件夹路径')).toHaveValue('D:/preset/docs')
   await expect(page.getByRole('button', { name: '下一步' })).toBeEnabled()
 })
 

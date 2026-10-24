@@ -78,6 +78,19 @@ describe('itemGuard.normalizeItem', () => {
     expect(result.warnings.some((w) => w.includes('updatedAt'))).toBe(true)
   })
 
+  it('R-C-9：时间戳为不可解析字符串（如「昨天」）→ 回落 now 并告警', () => {
+    const result = normalizeItem(
+      { name: 'x', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '昨天' },
+      0
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.item.createdAt).toBe('2026-01-01T00:00:00.000Z') // 合法值原样保留
+    expect(result.item.updatedAt).not.toBe('昨天') // 坏日期不流入缓存
+    expect(Number.isNaN(Date.parse(result.item.updatedAt))).toBe(false) // 回落值可解析
+    expect(result.warnings.some((w) => w.includes('updatedAt'))).toBe(true)
+  })
+
   it('T5.1（P0-04）：未知原始字段（string/number/boolean）原样透传，落盘往返不丢', () => {
     const result = normalizeItem({ name: 'x', owner: '张三', estimate: 8, pinned: true }, 0)
     expect(result.ok).toBe(true)

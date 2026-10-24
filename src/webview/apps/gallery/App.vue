@@ -285,8 +285,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .gallery__section {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
+  margin-bottom: var(--ui-space-6);
+  padding-bottom: var(--ui-space-6);
   border-bottom: 1px solid var(--ui-border);
 }
 
@@ -297,14 +297,14 @@ onBeforeUnmount(() => {
 }
 
 .gallery__section-title {
-  margin: 0 0 4px;
+  margin: 0 0 var(--ui-space-1);
   font-size: 1.1em;
   font-weight: 600;
   color: var(--ui-fg);
 }
 
 .gallery__section-desc {
-  margin: 0 0 12px;
+  margin: 0 0 var(--ui-space-3);
   font-size: 0.9em;
   color: var(--ui-fg-muted);
 }
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
 .gallery__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--ui-space-4);
 }
 
 .gallery__grid--stack {
@@ -326,11 +326,11 @@ onBeforeUnmount(() => {
 .gallery__item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--ui-space-2);
 }
 
 .gallery__item--wide {
-  max-width: 560px;
+  max-width: var(--ui-form-max-width);
 }
 
 .gallery__label {
@@ -342,30 +342,30 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
 }
 
 .gallery__row--block {
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--ui-space-2);
 }
 
 .gallery__card {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 16px;
+  padding: var(--ui-space-4);
   border: 1px solid var(--ui-border);
-  border-radius: 2px;
+  border-radius: var(--ui-radius);
   background: var(--ui-surface);
 }
 
 .gallery__card-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--ui-space-2);
+  margin-top: var(--ui-space-4);
 }
 
 /* 窄 Webview（侧边栏拖窄 / 小窗口分屏）：两列画廊网格折单列（U-4） */

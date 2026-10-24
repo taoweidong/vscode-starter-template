@@ -3,7 +3,13 @@ import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import App from '../../../webview/apps/importWizard/App.vue'
 import { __setVsCodeApiForTest, type VsCodeApi } from '../../../webview/shared/useVsCodeApi'
-import { buttonDisabled, hostMessage, inputChecked, inputValue } from './appTestUtils'
+import {
+  browserDocument,
+  buttonDisabled,
+  hostMessage,
+  inputChecked,
+  inputValue,
+} from './appTestUtils'
 
 /**
  * 批量导入向导页（M4-T4.4，FR-16 AC5）：步骤流转 / 预览去重 / 执行进度 / 取消 / 结果。
@@ -38,7 +44,9 @@ afterEach(() => {
 })
 
 function mountApp(): VueWrapper {
-  wrapper = mount(App)
+  // attachTo 'body'：jsdom 只对 isConnected 的元素执行 focus()（见 focusing.js），
+  // R-U-6 的焦点断言需要真实挂载点（字符串选择器形式可避开 DOM lib 类型依赖）。
+  wrapper = mount(App, { attachTo: 'body' })
   return wrapper
 }
 
@@ -48,6 +56,20 @@ function button(text: string) {
     throw new Error(`未找到按钮：${text}`)
   }
   return found
+}
+
+/**
+ * 来源步骤的路径输入框。R-U-3/R-U-7 之后 id 由 useId 生成（不再有固定 id #wizard-folder），
+ * 测试改为按「标签文本 → 控件」的语义路径定位，与 e2e 的 getByLabel 对齐。
+ */
+function folderInput() {
+  const label = wrapper!.findAll('label').find((candidate) => candidate.text() === '文件夹路径')
+  const controlId = label?.attributes('for')
+  const input = controlId ? wrapper!.find(`#${controlId}`) : wrapper!.find('input.v-input')
+  if (!input?.exists()) {
+    throw new Error('未找到「文件夹路径」输入框')
+  }
+  return input
 }
 
 function init(presetFolder?: string): void {
@@ -61,7 +83,7 @@ describe('importWizard：步骤① 来源', () => {
     expect(api.posted).toEqual([{ type: 'ready' }])
     init('D:/project/docs')
     await vi.waitFor(() => {
-      expect(inputValue(wrapper!.find('#wizard-folder').element)).toBe('D:/project/docs')
+      expect(inputValue(folderInput().element)).toBe('D:/project/docs')
     })
     expect(wrapper!.text()).toContain('选择来源')
   })
@@ -76,11 +98,11 @@ describe('importWizard：步骤① 来源', () => {
     expect(api.posted).toContainEqual({ type: 'browseFolder' })
     hostMessage({ type: 'selectFolder', folder: 'D:/project/docs' })
     await vi.waitFor(() => {
-      expect(inputValue(wrapper!.find('#wizard-folder').element)).toBe('D:/project/docs')
+      expect(inputValue(folderInput().element)).toBe('D:/project/docs')
     })
     hostMessage({ type: 'selectFolder', folder: null })
     await vi.waitFor(() => {
-      expect(inputValue(wrapper!.find('#wizard-folder').element)).toBe('D:/project/docs')
+      expect(inputValue(folderInput().element)).toBe('D:/project/docs')
     })
   })
 
@@ -90,7 +112,7 @@ describe('importWizard：步骤① 来源', () => {
     await vi.waitFor(() => {
       expect(buttonDisabled(button('下一步').element)).toBe(true)
     })
-    await wrapper!.find('#wizard-folder').setValue('D:/x')
+    await folderInput().setValue('D:/x')
     await button('下一步').trigger('click')
     expect(api.posted).toContainEqual({ type: 'requestPreview', folder: 'D:/x' })
   })
@@ -98,7 +120,7 @@ describe('importWizard：步骤① 来源', () => {
   it('宿主 error（文件夹不可读）：停留步骤①并显示错误', async () => {
     mountApp()
     init()
-    await wrapper!.find('#wizard-folder').setValue('D:/nope')
+    await folderInput().setValue('D:/nope')
     await button('下一步').trigger('click')
     hostMessage({ type: 'error', message: '读取文件夹失败：不存在' })
     await vi.waitFor(() => {
@@ -106,13 +128,67 @@ describe('importWizard：步骤① 来源', () => {
     })
     expect(wrapper!.text()).toContain('选择来源')
   })
+
+  it('R-U-3：hint 与输入框建立 aria-describedby 关联（去重语义可被读屏播报）', async () => {
+    mountApp()
+    init()
+    const describedBy = folderInput().attributes('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(wrapper!.find(`#${describedBy}`).text()).toContain('同名条目会自动跳过')
+  })
+
+  it('R-U-7：控件 id 由 useId 生成，页面内无重复 id', () => {
+    mountApp()
+    init()
+    const ids = wrapper!.findAll('[id]').map((element) => element.attributes('id')!)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).not.toContain('wizard-folder')
+  })
+
+  it('R-U-6：步骤切换后焦点落进新面板容器（不回落到 body）', async () => {
+    mountApp()
+    init()
+    await folderInput().setValue('D:/docs')
+    await button('下一步').trigger('click')
+    hostMessage({
+      type: 'importPreview',
+      files: [{ name: 'a.md', path: 'D:/docs/a.md', exists: false }],
+    })
+    await vi.waitFor(() => {
+      expect(wrapper!.text()).toContain('预览确认')
+    })
+    // 焦点在 flushJobs 之后的微任务里设置（watch → nextTick → focus），
+    // 比首个 waitFor 检查晚一拍，故同样用 waitFor 等待而非即时断言。
+    await vi.waitFor(() => {
+      expect(browserDocument.activeElement).toBe(wrapper!.find('.wizard__panel').element)
+    })
+  })
+
+  it('R-U-9：宿主长时间无应答 → 超时复位「扫描中」并给出可操作提示', async () => {
+    vi.useFakeTimers()
+    try {
+      mountApp()
+      init()
+      await folderInput().setValue('D:/docs')
+      await button('下一步').trigger('click')
+      expect(wrapper!.text()).toContain('正在扫描文件夹')
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(wrapper!.text()).not.toContain('正在扫描文件夹')
+      expect(wrapper!.text()).toContain('等待宿主响应超时')
+      // 复位后按钮不再被永久禁用（旧行为：宿主不应答则「浏览…」永远点不动）
+      expect(buttonDisabled(button('浏览…').element)).toBe(false)
+      expect(buttonDisabled(button('下一步').element)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('importWizard：步骤② 预览', () => {
   async function gotoPreview(): Promise<void> {
     mountApp()
     init()
-    await wrapper!.find('#wizard-folder').setValue('D:/docs')
+    await folderInput().setValue('D:/docs')
     await button('下一步').trigger('click')
     hostMessage({
       type: 'importPreview',
@@ -161,7 +237,7 @@ describe('importWizard：步骤② 预览', () => {
   it('预览为空：空态提示', async () => {
     mountApp()
     init()
-    await wrapper!.find('#wizard-folder').setValue('D:/empty')
+    await folderInput().setValue('D:/empty')
     await button('下一步').trigger('click')
     hostMessage({ type: 'importPreview', files: [] })
     await vi.waitFor(() => {
@@ -174,7 +250,7 @@ describe('importWizard：步骤③ 执行与取消', () => {
   async function gotoExecuting(): Promise<void> {
     mountApp()
     init()
-    await wrapper!.find('#wizard-folder').setValue('D:/docs')
+    await folderInput().setValue('D:/docs')
     await button('下一步').trigger('click')
     hostMessage({
       type: 'importPreview',
@@ -222,7 +298,7 @@ describe('importWizard：步骤④ 结果', () => {
   async function gotoResult(failures?: { name: string; reason: string }[]): Promise<void> {
     mountApp()
     init()
-    await wrapper!.find('#wizard-folder').setValue('D:/docs')
+    await folderInput().setValue('D:/docs')
     await button('下一步').trigger('click')
     hostMessage({
       type: 'importPreview',

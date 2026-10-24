@@ -21,8 +21,21 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/services/**', 'src/models/**', 'src/domain/**', 'src/webview/protocol.ts'],
-      // 阈值为 M6 实测值减约 1pt 余量（2026-10 实测：整体 93.2L/88.85B/94.06F/93.36S；
+      // R-E-6：此前只有 4 个 glob——commands / providers / features / webview 下约 200 个
+      // 用例完全不计入任何阈值，「整体 93%」名不副实。纳入「无需宿主即可测」的纯逻辑：
+      // 协议收窄层、表单 schema 派生、字段适配、稳定序列化、命令注册工具、HTML 外壳。
+      include: [
+        'src/services/**',
+        'src/models/**',
+        'src/domain/**',
+        'src/webview/protocol.ts',
+        'src/webview/formSchema.ts',
+        'src/webview/components/fieldAdapter.ts',
+        'src/webview/host/webviewHtml.ts',
+        'src/webview/shared/stableStringify.ts',
+        'src/commands/shared.ts',
+      ],
+      // 阈值为实测值减约 1pt 余量（2026-10 实测：整体 93.2L/88.85B/94.06F/93.36S；
       // services 92.5L、models 97.3L、protocol 100）。
       // 已知差距：domain 82.8L/74.3B——coerceBooleanField 为预留路径（生产字段表
       // 暂无 boolean 字段，接入首个 boolean 字段后即可覆盖并提至 85+）。

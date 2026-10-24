@@ -3,6 +3,7 @@ import * as vscode from 'vscode'
 import { type Item, PRIORITY_LABELS, type Priority } from '../models/item'
 import { ItemValidationError, type ItemService } from '../services/itemService'
 import { ItemFormPanel } from '../providers/itemFormPanel'
+import { escapeMarkdownInline } from '../ui/markdown'
 import { PRIORITY_ICONS } from '../ui/icons'
 import type { StepStatus } from '../features/init/initService'
 import { getFeatureValue } from '../features/featureConfig/featureFlags'
@@ -69,11 +70,6 @@ export function statusIcon(status: StepStatus): string {
     default:
       return '$(circle-outline)'
   }
-}
-
-/** Markdown 行内特殊字符转义（\ * _ [ ] `；反斜杠必须优先，否则自身被当转义符）。 */
-export function escapeMarkdownInline(text: string): string {
-  return text.replace(/([\\*_`[\]])/g, '\\$1')
 }
 
 /** 条目 → Markdown 清单行；多行描述的续行缩进两空格以保持列表结构。 */

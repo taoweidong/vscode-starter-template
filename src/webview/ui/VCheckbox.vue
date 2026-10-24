@@ -62,7 +62,7 @@ function onChange(event: Event): void {
   border-radius: var(--ui-radius);
   background: var(--ui-check-bg);
   color: var(--ui-check-fg);
-  accent-color: var(--vscode-checkbox-select-background, var(--ui-focus));
+  accent-color: var(--ui-check-selected); /* R-U-4：不再直接消费 --vscode-* */
   cursor: inherit;
 }
 

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
 import { registerCommands, type CommandDeps } from '../../commands'
-import {
-  collectTargets,
-  escapeMarkdownInline,
-  names,
-  notifySuccess,
-  toMarkdown,
-} from '../../commands/shared'
+import { collectTargets, names, notifySuccess, toMarkdown } from '../../commands/shared'
 import { COMMAND } from '../../constants'
 import type { Item } from '../../models/item'
 import { __resetStubs, __setConfig, __stubs, createExtensionContextStub } from './stubs/vscode'
@@ -15,8 +9,7 @@ import { __resetStubs, __setConfig, __stubs, createExtensionContextStub } from '
 /**
  * 命令层单测（C-15 拆分 + C-12 修复）：
  * - 拆分后 shared.ts 的导出是各分组与门禁静态检查的共同基础，此处锁定其行为；
- * - C-12：escapeMarkdownInline 漏转义反斜杠（复制出的 Markdown 渲染错乱），
- *   先补含 `\` 的复现用例，再验证修复。
+ * - C-12 的转义用例已随 R-C-8 迁至 ui/markdown.spec.ts（toMarkdown 仍在此覆盖转义链路）。
  */
 
 function makeItem(overrides: Partial<Item> = {}): Item {
@@ -32,26 +25,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     ...overrides,
   }
 }
-
-describe('escapeMarkdownInline（C-12：反斜杠必须一并转义）', () => {
-  it('六个行内特殊字符均前置反斜杠', () => {
-    expect(escapeMarkdownInline('\\')).toBe('\\\\')
-    expect(escapeMarkdownInline('*')).toBe('\\*')
-    expect(escapeMarkdownInline('_')).toBe('\\_')
-    expect(escapeMarkdownInline('`')).toBe('\\`')
-    expect(escapeMarkdownInline('[')).toBe('\\[')
-    expect(escapeMarkdownInline(']')).toBe('\\]')
-  })
-
-  it('修复前 `a\\*b` 中的字面反斜杠会被当成转义符吞掉（复现用例）', () => {
-    // 旧正则 /([*_`[\]])/g 不匹配 \：a\*b → a\*b（星号被转义、反斜杠丢失），渲染错乱
-    expect(escapeMarkdownInline('a\\*b')).toBe('a\\\\\\*b')
-  })
-
-  it('混合文本逐字符转义，不重复处理已转义序列', () => {
-    expect(escapeMarkdownInline('修复 \\ 转义_[x]`')).toBe('修复 \\\\ 转义\\_\\[x\\]\\`')
-  })
-})
 
 describe('toMarkdown（复制为 Markdown 的文本结构）', () => {
   it('名称含反斜杠时正确双写转义（C-12）', () => {

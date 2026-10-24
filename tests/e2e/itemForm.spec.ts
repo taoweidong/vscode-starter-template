@@ -151,7 +151,12 @@ test('itemForm：编辑模式 init 回填各控件', async ({ page }) => {
   await expect(fieldControl(page, '描述')).toHaveValue('d')
 
   // 分类建议 datalist 来自 init 的 categories（option 文本为空，值即分类名）
-  const categoryOptions = page.locator('datalist#category-list option')
+  // R-U-7：datalist id 由页面 useId 派生，不再用固定 id 定位
+  const categoryInput = fieldControl(page, '分类')
+  const datalistId = await categoryInput.getAttribute('list')
+  expect(datalistId).toBeTruthy()
+  const categoryOptions = page.locator(`datalist#${datalistId} option`)
+  await expect(page.locator(`datalist#${datalistId}`)).toHaveCount(1)
   await expect(categoryOptions).toHaveCount(2)
   await expect(categoryOptions.nth(0)).toHaveAttribute('value', '工作')
   await expect(categoryOptions.nth(1)).toHaveAttribute('value', '生活')

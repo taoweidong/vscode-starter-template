@@ -1,15 +1,17 @@
 /**
  * 生成市场图标 media/icon.png（128×128）：M6 / T6.5。
  *
- * 用已安装的 Playwright（channel: msedge，Windows CI 与开发机自带 Edge）加载
- * media/icon.svg（包裹 HTML，透明背景、128×128 视口、SVG 居中放大），截图产出 PNG。
+ * 用已安装的 Playwright 加载 media/icon.svg（包裹 HTML，透明背景、128×128 视口、
+ * SVG 居中放大），截图产出 PNG。浏览器通道按平台选择（07 R-E-14）：Windows 用自带
+ * Edge（channel: 'msedge'，CI 与开发机均预装）；其他平台无 msedge 通道，改用
+ * Playwright 捆绑的 Chromium（需先 npx playwright install chromium）。
  * 图标源更新后重新运行本脚本即可：
  *
  *   npx tsx scripts/generate-icon.ts
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { chromium } from 'playwright'
+import { chromium, type Browser } from 'playwright'
 
 const root = path.resolve(__dirname, '..')
 const svgPath = path.join(root, 'media', 'icon.svg')
@@ -47,7 +49,24 @@ async function main(): Promise<void> {
   </body>
 </html>`
 
-  const browser = await chromium.launch({ channel: 'msedge' })
+  // 平台条件式浏览器通道（07 R-E-14）：msedge 仅 Windows 可用；
+  // 其他平台用 Playwright 捆绑的 Chromium（channel 缺省）。
+  const channel = process.platform === 'win32' ? 'msedge' : undefined
+  let browser: Browser
+  try {
+    browser = await chromium.launch(channel ? { channel } : {})
+  } catch (err) {
+    // 失败明确提示：给出平台相关的修复动作，而非只抛裸 stack
+    const hint =
+      channel === 'msedge'
+        ? '请确认本机已安装 Microsoft Edge（Windows 10/11 默认自带）。'
+        : '请先执行 npx playwright install chromium 安装浏览器。'
+    console.error(
+      `generate-icon：无法启动浏览器（channel: ${channel ?? 'bundled chromium'}）。${hint}`
+    )
+    console.error(err)
+    process.exit(1)
+  }
   try {
     const page = await browser.newPage({ viewport: { width: 128, height: 128 } })
     await page.setContent(html, { waitUntil: 'load' })

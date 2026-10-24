@@ -11,8 +11,8 @@
 <style scoped>
 .v-toolbar-divider {
   display: inline-block;
-  width: 1px;
-  height: 16px;
+  width: var(--ui-hairline); /* R-U-4：发丝线宽登记为令牌 */
+  height: var(--ui-toolbar-divider-height); /* R-U-4 */
   background: var(--ui-border);
 }
 </style>

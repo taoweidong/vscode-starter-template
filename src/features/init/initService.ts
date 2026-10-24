@@ -62,7 +62,10 @@ export class InitService implements vscode.Disposable {
     }
     if (this.running) {
       // T5.4 / P1-12：runAll 执行期间不允许单步交错（并发写同一文件风险）
-      this.output.appendLine(`[初始化] 单步执行「${step.title}」被忽略：初始化正在执行中。`)
+      const reason = '初始化正在执行中，单步执行已被忽略（等待整体结束后重试）。'
+      this.output.appendLine(`[初始化] 单步执行「${step.title}」被忽略：${reason}`)
+      // R-C-21：只写输出通道时，用户单击树视图步骤会「毫无反应」——补一条可见提示
+      void vscode.window.showInformationMessage(`「${step.title}」：${reason}`)
       return
     }
     await this.execute(step, state)

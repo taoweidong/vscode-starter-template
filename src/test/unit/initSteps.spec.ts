@@ -33,10 +33,15 @@ describe('initSteps 数据文件步骤（路径白名单接入）', () => {
     })
   }
 
-  it('默认配置：在 .vscode/crud-starter-items.json 创建空数组文件', async () => {
+  it('默认配置：在 .vscode/crud-starter-items.json 创建 v2 信封空文件', async () => {
     const message = await runDataFileStep()
     expect(message).toContain(STORAGE.defaultFileName)
-    expect(nodeFs.readFileSync(nodePath.join(rootDir, STORAGE.defaultFileName), 'utf8')).toBe('[]')
+    // R-C-12：写 v2 信封而非 '[]'——否则此后每次 load 都触发「旧版数组格式」告警，
+    // 直到首次保存才迁移
+    const written = JSON.parse(
+      nodeFs.readFileSync(nodePath.join(rootDir, STORAGE.defaultFileName), 'utf8')
+    ) as { schemaVersion?: number; items?: unknown[] }
+    expect(written).toEqual({ schemaVersion: 2, items: [] })
   })
 
   it('合法自定义路径：文件落在配置位置', async () => {

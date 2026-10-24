@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 import { registerCommands } from './commands'
 import { CONFIG, VIEW } from './constants'
-import { BuildService } from './features/build/buildService'
+import { BuildService, DEFAULT_DIRTY_IGNORES } from './features/build/buildService'
 import { BuildTreeProvider } from './features/build/buildTreeProvider'
 import { createFeatureConfigDeps, ConfigFormPanel } from './features/featureConfig/configFormPanel'
 import { FeatureConfigTreeProvider } from './features/featureConfig/featureConfigTreeProvider'
@@ -19,6 +19,8 @@ import { ItemsTreeDataProvider } from './providers/itemsTreeDataProvider'
 import { EnvironmentTreeProvider } from './providers/environmentTreeProvider'
 import { StorageController } from './services/storageController'
 import type { ItemService } from './services/itemService'
+import { storageRelativePath } from './services/storagePath'
+import { JsonFileStore } from './services/stores/jsonFileStore'
 import { TaskRunner } from './tasks/taskRunner'
 import { TASKS } from './tasks/taskRegistry'
 import { WebviewController, type WebviewControllerDeps } from './webview/host/webviewController'
@@ -120,15 +122,38 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   )
 
-  const staticProvider = new StaticConfigTreeProvider(() => staticConfig.getSections())
+  // R-C-22：第二个参数接通解析失败原因——配置文件 JSON 坏了要显示错误态节点，
+  // 而不是和「尚未生成」混为同一个「暂无静态配置」
+  const staticProvider = new StaticConfigTreeProvider(
+    () => staticConfig.getSections(),
+    () => staticConfig.getError()
+  )
   context.subscriptions.push(
     staticConfig.onDidChangeItems(() => staticProvider.refresh()),
     vscode.window.createTreeView(VIEW.staticConfigViewId, { treeDataProvider: staticProvider })
   )
 
+  /**
+   * 插件自身数据文件的相对路径（R-C-4 忽略前缀的动态来源）：
+   * 数据源为 Memento（无工作区）时没有文件，返回空数组。
+   */
+  function selfDataIgnorePrefix(): readonly string[] {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri
+    const store = storage.currentStore
+    if (!root || !(store instanceof JsonFileStore)) {
+      return []
+    }
+    return [storageRelativePath(root, store.fileUri)]
+  }
+
   const buildService = new BuildService(
     outputChannel,
-    () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    {
+      // R-C-4：忽略前缀动态求值——数据文件路径跟随 crudStarter.storagePath 配置，
+      // 工作区 / 配置变化后 store 会重建，组装期快照会让自定义路径用户被脏检查自阻断
+      getDirtyIgnorePrefixes: () => [...DEFAULT_DIRTY_IGNORES, ...selfDataIgnorePrefix()],
+    }
   )
   context.subscriptions.push(buildService)
   const buildProvider = new BuildTreeProvider(buildService, () => buildService.getGitInfo())

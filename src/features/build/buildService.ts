@@ -66,6 +66,35 @@ export class CommandTimeoutError extends Error {
  */
 export type CommandRunner = (spec: CommandSpec, token?: TaskSignal) => Promise<string>
 
+/** spawnCommand 的可注入依赖（默认取进程真实值；单测桩化平台与 spawn，零真实子进程）。 */
+export interface SpawnDependencies {
+  /** 平台判定（默认 process.platform；决定取消 / 超时是否走 taskkill 进程树杀）。 */
+  platform?: () => string
+  /** 子进程创建（默认 childProcess.spawn）。 */
+  spawn?: typeof childProcess.spawn
+}
+
+/**
+ * 取消 / 超时时的进程终止（R-C-6）：
+ * Windows 下 npm/npx 经 cmd.exe /c 包装，直系子进程是 cmd.exe——只 kill 它的话
+ * npm/node 孙进程成为孤儿继续跑完并写 dist/，与「取消即中止」的承诺不符。
+ * 因此 win32 走 taskkill 进程树杀（参数数组 + shell:false，路径与参数全固定，无注入面）；
+ * 其他平台 child.kill() 即可覆盖整棵树。
+ */
+function killChild(
+  child: childProcess.ChildProcess,
+  deps: { platform: () => string; spawn: typeof childProcess.spawn }
+): void {
+  if (deps.platform() === 'win32' && child.pid !== undefined) {
+    deps.spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+      shell: false,
+      windowsHide: true,
+    })
+  } else {
+    child.kill()
+  }
+}
+
 /** Windows 下 npm / npx 是 .cmd 脚本，Node 出于安全（CVE-2024-27980）禁止无 shell 直接
  * spawn .cmd/.bat——经由 cmd.exe /c 包装；参数全部为固定常量，不含任何用户输入。 */
 function npmCommand(): { command: string; prefix: string[] } {
@@ -80,10 +109,17 @@ function npxCommand(): { command: string; prefix: string[] } {
     : { command: 'npx', prefix: [] }
 }
 
-/** 默认命令执行器：spawn（shell:false、参数数组、windowsHide），支持取消与超时。 */
-export function spawnCommand(spec: CommandSpec, token?: TaskSignal): Promise<string> {
+/** 默认命令执行器：spawn（shell:false、参数数组、windowsHide），支持取消与超时。
+ *  取消 / 超时杀整棵进程树（R-C-6，win32 走 taskkill）；platform/spawn 可注入以便单测桩化。 */
+export function spawnCommand(
+  spec: CommandSpec,
+  token?: TaskSignal,
+  deps: SpawnDependencies = {}
+): Promise<string> {
+  const platform = deps.platform ?? ((): string => process.platform)
+  const spawn = deps.spawn ?? childProcess.spawn
   return new Promise<string>((resolve, reject) => {
-    const child = childProcess.spawn(spec.command, spec.args, {
+    const child = spawn(spec.command, spec.args, {
       cwd: spec.cwd,
       shell: false,
       windowsHide: true,
@@ -103,11 +139,11 @@ export function spawnCommand(spec: CommandSpec, token?: TaskSignal): Promise<str
       action()
     }
     timer = setTimeout(() => {
-      child.kill()
+      killChild(child, { platform, spawn })
       settle(() => reject(new CommandTimeoutError(spec)))
     }, spec.timeoutMs ?? EXEC_TIMEOUT_MS)
     cancelSub = token?.onCancellationRequested(() => {
-      child.kill()
+      killChild(child, { platform, spawn })
       settle(() => reject(new BuildCancelledError()))
     })
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -175,8 +211,12 @@ export function filterDirtyLines(
 export interface BuildServiceOptions {
   /** 命令执行器（默认 spawn 参数数组实现；单测注入假 runner 记录调用 / 编程失败）。 */
   runCommand?: CommandRunner
-  /** 脏检查忽略前缀（默认 DEFAULT_DIRTY_IGNORES；可按实际 storagePath 配置追加）。 */
-  dirtyIgnorePrefixes?: string[]
+  /**
+   * 脏检查忽略前缀 getter（默认 DEFAULT_DIRTY_IGNORES）。
+   * R-C-4：getter 形态而非快照数组——数据文件路径跟随 crudStarter.storagePath 配置，
+   * 工作区 / 配置变化后 store 会重建，组装期快照会过期（自定义路径用户被自阻断）。
+   */
+  getDirtyIgnorePrefixes?: () => string[]
 }
 
 /**
@@ -189,7 +229,7 @@ export interface BuildServiceOptions {
  * - 互斥：running 标志，并发 build 返回 error「已有编译任务进行中」；
  * - 取消：withProgress cancellable 全流程包裹，取消时 kill 子进程并返回 error；
  * - shell 安全：全部命令 spawn 参数数组 + shell:false；分支名经 git check-ref-format 预检；
- * - 脏检查：排除插件自身数据文件（P1-09 自阻断）；
+ * - 脏检查：排除插件自身数据文件（P1-09 自阻断；R-C-4 起忽略前缀动态跟随 storagePath 配置）；
  * - 分支切换前模态确认，失败结果附「可用 git checkout <原分支> 恢复」指引。
  */
 export class BuildService implements vscode.Disposable {
@@ -197,7 +237,7 @@ export class BuildService implements vscode.Disposable {
   private gitCache: { info: GitInfo; at: number } | undefined
   private running = false
   private readonly runCommand: CommandRunner
-  private readonly dirtyIgnorePrefixes: readonly string[]
+  private readonly getDirtyIgnorePrefixes: () => string[]
 
   private readonly _onDidChangeItems = new vscode.EventEmitter<void>()
   readonly onDidChangeItems = this._onDidChangeItems.event
@@ -208,7 +248,7 @@ export class BuildService implements vscode.Disposable {
     options: BuildServiceOptions = {}
   ) {
     this.runCommand = options.runCommand ?? spawnCommand
-    this.dirtyIgnorePrefixes = options.dirtyIgnorePrefixes ?? DEFAULT_DIRTY_IGNORES
+    this.getDirtyIgnorePrefixes = options.getDirtyIgnorePrefixes ?? (() => DEFAULT_DIRTY_IGNORES)
   }
 
   get isRunning(): boolean {
@@ -220,7 +260,9 @@ export class BuildService implements vscode.Disposable {
   }
 
   /** 读取当前分支与分支列表（非 Git 仓库时 available=false，不抛错）。
-   * 结果带 5 秒 TTL 缓存，避免树视图频繁刷新时反复 spawn git 进程；build 等需要最新状态时传 force。 */
+   * 成功结果带 5 秒 TTL 缓存，避免树视图频繁刷新时反复 spawn git 进程；build 等需要最新状态时传 force。
+   * R-C-23：失败结果（git 未安装 / 非仓库 / 无工作区）不写缓存——否则树视图会在 TTL 内
+   * 固定显示「未检测到 Git 仓库」，用户环境就绪后也要等满 5 秒才刷新。 */
   async getGitInfo(force = false): Promise<GitInfo> {
     const now = Date.now()
     if (!force && this.gitCache && now - this.gitCache.at < GIT_CACHE_TTL_MS) {
@@ -256,7 +298,8 @@ export class BuildService implements vscode.Disposable {
         info = { available: false, branches: [] }
       }
     }
-    this.gitCache = { info, at: now }
+    // R-C-23：只缓存成功结果；失败立即重试（代价是一次快速失败的 git 查询）
+    this.gitCache = info.available ? { info, at: now } : undefined
     return info
   }
 
@@ -342,7 +385,7 @@ export class BuildService implements vscode.Disposable {
           { command: 'git', args: ['status', '--porcelain'], cwd, timeoutMs: GIT_QUERY_TIMEOUT_MS },
           token
         )
-        dirtyLines = filterDirtyLines(porcelain, this.dirtyIgnorePrefixes)
+        dirtyLines = filterDirtyLines(porcelain, this.getDirtyIgnorePrefixes())
       } catch (err) {
         if (cancelled(err)) {
           return fail('error', '已取消编译。')

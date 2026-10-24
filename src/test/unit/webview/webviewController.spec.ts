@@ -309,6 +309,47 @@ describe('cancel 路径 dirty 确认（U-1：Esc / 点取消）', () => {
   })
 })
 
+describe('R-U-9 协议健壮性（cancel 重入 / init 同步抛错）', () => {
+  it('连点 cancel（dirty 确认在途）只弹一次模态、onCancel 只触发一次', async () => {
+    const { deps, panels } = makeDeps()
+    const onCancel = vi.fn()
+    const controller = WebviewController.createOrShow('gallery', context, { ...deps, onCancel })
+    await controller.ready
+    panels[0].webview.__emit({ type: 'dirty', dirty: true })
+    __stubs.dialogQueue.push('放弃修改并关闭')
+    panels[0].webview.__emit({ type: 'cancel' })
+    panels[0].webview.__emit({ type: 'cancel' }) // 确认在途期间的第二次触发（连点 / 连按 Esc）
+    await vi.waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(__stubs.recorded.filter((entry) => entry.kind === 'showWarningMessage')).toHaveLength(1)
+    controller.dispose()
+  })
+
+  it('同步 buildInit 抛错：下发 error 而非炸掉 onDidReceiveMessage 监听器', async () => {
+    const { deps, panels, logs } = makeDeps()
+    const controller = WebviewController.createOrShow('gallery', context, {
+      ...deps,
+      buildInit: () => {
+        throw new Error('schema 读取失败')
+      },
+    })
+    await controller.ready
+    panels[0].posted.length = 0
+    expect(() => panels[0].webview.__emit({ type: 'ready' })).not.toThrow()
+    await vi.waitFor(() => {
+      expect(panels[0].posted).toEqual([
+        { type: 'error', message: '页面初始化失败：schema 读取失败' },
+      ])
+    })
+    expect(logs.some((line) => line.includes('init 载荷构造失败'))).toBe(true)
+    // 监听器仍然存活：后续消息照常处理（同步抛错不再是「炸掉整个面板消息通道」）
+    panels[0].webview.__emit({ type: 'dirty', dirty: true })
+    expect(controller.isDirty).toBe(true)
+    controller.dispose()
+  })
+})
+
 describe('submit 幂等与超时', () => {
   it('成功回 submitAck；失败回 error', async () => {
     const { deps, panels } = makeDeps()
@@ -345,18 +386,42 @@ describe('submit 幂等与超时', () => {
       panels[0].webview.__emit({ type: 'submit', draft: {} })
       await vi.advanceTimersByTimeAsync(100)
       expect(onSubmit).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
-      // 10s 超时自动解锁并回 error
+  it('R-C-10 提交超时：不抢发 error、不永久锁死；任务随后成功时如实下发 submitAck', async () => {
+    vi.useFakeTimers()
+    try {
+      const { deps, panels } = makeDeps()
+      let settle: (() => void) | undefined
+      const onSubmit = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            settle = resolve
+          })
+      )
+      const controller = WebviewController.createOrShow('gallery', context, { ...deps, onSubmit })
+      await controller.ready
+
+      panels[0].webview.__emit({ type: 'submit', draft: {} })
+      await vi.advanceTimersByTimeAsync(100)
       panels[0].posted.length = 0
-      await vi.advanceTimersByTimeAsync(10_000)
-      expect(panels[0].posted).toEqual([
-        { type: 'error', message: expect.stringContaining('超时') },
-      ])
 
-      // 解锁后可再次提交
+      // 10s 超时：不抢发 error（避免「超时」与「已保存」并存误导用户）
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(panels[0].posted).toEqual([])
+
+      // 但也不永久锁死提交：超时即解锁，用户可重试
       panels[0].webview.__emit({ type: 'submit', draft: {} })
       await vi.advanceTimersByTimeAsync(100)
       expect(onSubmit).toHaveBeenCalledTimes(2)
+
+      // 迟到的成功如实下发 submitAck（面板据此关闭并提示成功，而非无响应）
+      settle!()
+      await vi.advanceTimersByTimeAsync(100)
+      expect(panels[0].posted).toEqual([{ type: 'submitAck', ok: true }])
     } finally {
       vi.useRealTimers()
     }

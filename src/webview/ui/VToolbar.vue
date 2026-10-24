@@ -8,7 +8,9 @@ defineProps<{ /** 可访问名称 */ label?: string }>()
 </script>
 
 <template>
-  <div class="v-toolbar" role="toolbar" :aria-label="label">
+  <!-- R-U-8：role="toolbar" 会向 SR 承诺「方向键导航」但本组件只支持 Tab，
+       角色承诺与交互模型不符——按钮数量少的场景用 group 更贴合 VSCode 习惯。 -->
+  <div class="v-toolbar" role="group" :aria-label="label">
     <slot></slot>
   </div>
 </template>

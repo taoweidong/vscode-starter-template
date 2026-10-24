@@ -3,6 +3,7 @@ import { COMMAND, VIEW } from '../constants'
 import { getFeatureValue } from '../features/featureConfig/featureFlags'
 import { Item, PRIORITY_LABELS } from '../models/item'
 import { ItemService } from '../services/itemService'
+import { escapeMarkdownInline } from '../ui/markdown'
 import { PRIORITY_ICONS } from '../ui/icons'
 
 /** 树节点：分类分组节点或条目叶子节点。 */
@@ -96,11 +97,6 @@ export class ItemsTreeDataProvider implements vscode.TreeDataProvider<TreeNode> 
     }
     return []
   }
-}
-
-/** Markdown 行内特殊字符转义（\ * _ [ ] `；反斜杠优先）。 */
-function escapeMarkdownInline(text: string): string {
-  return text.replace(/([\\*_`[\]])/g, '\\$1')
 }
 
 function buildTooltip(item: Item): vscode.MarkdownString {

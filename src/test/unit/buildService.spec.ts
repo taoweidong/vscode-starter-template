@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as childProcess from 'child_process'
 import * as vscode from 'vscode'
 import { __resetStubs, __stubs } from './stubs/vscode'
 import {
@@ -97,6 +98,17 @@ function makeService(fake: FakeRunner): BuildService {
   })
 }
 
+/** 带额外选项构造（R-C-4 等需要注入 getDirtyIgnorePrefixes 的用例）。 */
+function makeServiceWithOptions(
+  fake: FakeRunner,
+  options: ConstructorParameters<typeof BuildService>[2]
+): BuildService {
+  return new BuildService(vscode.window.createOutputChannel('CRUD Starter Test'), () => CWD, {
+    runCommand: fake.runner,
+    ...options,
+  })
+}
+
 /** 让 withProgress 内的多段 await 推进（假 runner 同步 resolve，微任务即可）。 */
 const flush = async (times = 8): Promise<void> => {
   for (let i = 0; i < times; i += 1) {
@@ -182,6 +194,25 @@ describe('BuildService 分支切换（check-ref-format / 脏检查 / 确认 / �
     const checkouts = fake.findCalls('git', ['checkout'])
     expect(checkouts).toHaveLength(1)
     expect(checkouts[0].args).toEqual(['checkout', 'feat/x']) // 参数数组（无 shell 拼接）
+  })
+
+  it('R-C-4 脏检查忽略前缀动态跟随 storagePath：自定义路径用户不被自阻断', async () => {
+    const fake = new FakeRunner()
+    programGit(fake, {
+      porcelain: ' M data/items.json\n',
+    })
+    fake.onArgs(NPM, npmArgs('run', 'package'), 'ok')
+    fake.onArgs(NPX, npxArgs('--no-install', 'vsce', '--version'), new Error('no vsce'))
+    __stubs.dialogQueue.push('切换并编译')
+    // 模拟 crudStarter.storagePath 配置为 data/items.json 的用户
+    const svc = makeServiceWithOptions(fake, {
+      getDirtyIgnorePrefixes: () => [...DEFAULT_DIRTY_IGNORES, 'data/items.json'],
+    })
+    const result = await svc.build('feat/x')
+    expect(result.message).not.toContain('未提交的修改')
+    const checkouts = fake.findCalls('git', ['checkout'])
+    expect(checkouts).toHaveLength(1)
+    expect(checkouts[0].args).toEqual(['checkout', 'feat/x'])
   })
 
   it('存在其他未提交修改：拒绝切换并列出示例文件', async () => {
@@ -419,5 +450,53 @@ describe('spawnCommand（默认执行器）', () => {
     await new Promise((resolve) => setTimeout(resolve, 150))
     source.cancel()
     await expect(pending).rejects.toBeInstanceOf(BuildCancelledError)
+  }, 20000)
+
+  /** 无真实子进程的假 child：只提供 spawnCommand 用到的句柄（R-C-6 单测桩）。 */
+  function fakeChild(pid = 4321): childProcess.ChildProcess {
+    const child = {
+      pid,
+      stdout: { on: () => undefined },
+      stderr: { on: () => undefined },
+      on: () => child,
+      kill: vi.fn(),
+    }
+    return child as unknown as childProcess.ChildProcess
+  }
+
+  it('R-C-6 取消（win32）：走 taskkill 进程树杀，不让 npm/node 孙进程成孤儿', async () => {
+    const child = fakeChild()
+    const spawn = vi.fn(() => child) as unknown as typeof childProcess.spawn
+    const source = new TaskSignalSource()
+    const pending = spawnCommand(
+      { command: 'npm', args: ['run', 'package'], cwd: process.cwd(), timeoutMs: 30000 },
+      source.signal,
+      { platform: () => 'win32', spawn }
+    )
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    source.cancel()
+    await expect(pending).rejects.toBeInstanceOf(BuildCancelledError)
+    expect(spawn).toHaveBeenCalledWith(
+      'taskkill',
+      ['/pid', '4321', '/T', '/F'],
+      expect.objectContaining({ shell: false })
+    )
+    expect(child.kill).not.toHaveBeenCalled() // 非 win32 分支才直接 kill
+  }, 20000)
+
+  it('R-C-6 取消（非 win32）：直接 kill 已覆盖整棵进程树，不调 taskkill', async () => {
+    const child = fakeChild()
+    const spawn = vi.fn(() => child) as unknown as typeof childProcess.spawn
+    const source = new TaskSignalSource()
+    const pending = spawnCommand(
+      { command: 'npm', args: ['run', 'package'], cwd: process.cwd(), timeoutMs: 30000 },
+      source.signal,
+      { platform: () => 'linux', spawn }
+    )
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    source.cancel()
+    await expect(pending).rejects.toBeInstanceOf(BuildCancelledError)
+    expect(child.kill).toHaveBeenCalledTimes(1)
+    expect(spawn).toHaveBeenCalledTimes(1) // 只有建子进程那次，没有 taskkill
   }, 20000)
 })

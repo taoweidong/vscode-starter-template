@@ -136,6 +136,17 @@ describe('SchemaForm：v-model 回填与更新', () => {
     expect(inputValue(tagsInput.element)).toBe('a, b')
   })
 
+  it('R-U-1 tags 尾随分隔符不被回显吞掉（逐字符输入逗号）', async () => {
+    const wrapper = mountForm()
+    const tagsInput = wrapper.findAll('input[type="text"]')[2]
+    await tagsInput.setValue('前端,')
+    // 模拟父级 v-model 回传（新引用对象）→ 触发 TagsField 的回显 watch：
+    // 旧实现按文本相等覆盖，用户刚输入的逗号会被吞掉，最终合成一个词
+    const emitted = wrapper.emitted('update:modelValue')!
+    await wrapper.setProps({ modelValue: emitted.at(-1)![0] })
+    expect(inputValue(tagsInput.element)).toBe('前端,')
+  })
+
   it('boolean 字段切换触发 update:modelValue（true/false）', async () => {
     const wrapper = mountForm()
     await wrapper.find('input[type="checkbox"]').setValue(true)

@@ -105,9 +105,15 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
       void vscode.window.showInformationMessage('未打开工作区，静态配置不可用。')
       return
     }
-    await staticConfig.ensureDefault()
-    await staticConfig.load()
-    await vscode.window.showTextDocument(staticConfig.fileUri)
+    try {
+      await staticConfig.ensureDefault()
+      await staticConfig.load()
+      await vscode.window.showTextDocument(staticConfig.fileUri)
+    } catch (err) {
+      // R-C-17：ensureDefault / load / showTextDocument 任一失败都经 showError 统一呈现，
+      // 不与全库「命令不裸 reject」的模式脱节
+      showError(err)
+    }
   })
 
   /* ---------- 功能页面：分支编译出包（任务自动化模式） ---------- */

@@ -346,6 +346,26 @@ describe('ItemService reload 与 replaceStore', () => {
     expect(store.loadCount).toBe(loadsBefore)
   })
 
+  it('R-C-1：过滤中的过期 load#1 与新 load#2 均按各自快照过滤（不错配）', async () => {
+    store.manualResolve = true
+    service.setFilter('甲')
+    const staleList = service.list() // load#1（generation 0）挂起
+    service.reload() // generation→1，在途 load#1 即刻过期（searchTexts 随之作废）
+    const freshList = service.list() // load#2（generation 1）挂起
+    // 新请求先返回：正常落缓存，按新快照过滤
+    store.pendingLoads[1]([{ ...baseItem('甲1') }, { ...baseItem('乙1') }])
+    expect(await freshList).toHaveLength(1)
+    // 旧请求迟到：过期结果只返回给它的调用方，但 items 与 searchTexts 同源自洽——
+    // 过滤仍正确命中「甲0」（旧实现用已清空的共享 searchTexts，本条会被滤成 []）
+    store.pendingLoads[0]([{ ...baseItem('甲0') }, { ...baseItem('乙0') }])
+    expect(await staleList).toHaveLength(1)
+    // 缓存仍是新世代：list() 不再触发新的 load，过滤结果不变
+    const loadsBefore = store.loadCount
+    store.manualResolve = false
+    expect(await service.list()).toHaveLength(1)
+    expect(store.loadCount).toBe(loadsBefore)
+  })
+
   it('replaceStore：切换数据源后缓存失效并从新 store 读取', async () => {
     await service.create({
       name: '旧源数据',

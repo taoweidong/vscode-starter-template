@@ -54,6 +54,14 @@ describe('InitService 生命周期', () => {
     expect(
       outputLines().some((line) => line.includes('被忽略') && line.includes('初始化正在执行中'))
     ).toBe(true)
+    // R-C-21：只写输出通道时用户单击步骤「毫无反应」——必须同时有可见提示
+    expect(
+      __stubs.recorded.some(
+        (call) =>
+          call.kind === 'showInformationMessage' &&
+          String((call.args[0] as { message?: unknown } | undefined)?.message ?? '').includes('B')
+      )
+    ).toBe(true)
     expect(svc.getStates().find((state) => state.id === 'b')?.status).toBe('idle') // 未被执行
     releaseFirst()
     await running

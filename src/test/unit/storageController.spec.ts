@@ -27,12 +27,20 @@ interface StubWatcher {
   dispose(): void
 }
 
-function makeController(): StorageController {
+function makeController(onWarning?: (message: string) => void): StorageController {
   return new StorageController({
     globalState: createMementoStub(),
-    onWarning: () => undefined,
+    onWarning: onWarning ?? (() => undefined),
     onCorrupted: async () => 'continue-empty',
   })
+}
+
+/** 计数「storagePath 配置非法」警告（R-C-16 的去重行为验证）。 */
+function countInvalidPathWarnings(): number {
+  return __stubs.recorded.filter(
+    (entry) =>
+      entry.kind === 'showWarningMessage' && JSON.stringify(entry.args).includes('storagePath')
+  ).length
 }
 
 function draft(name: string): {
@@ -160,6 +168,42 @@ describe('StorageController', () => {
     expect(watcherCalls).toHaveLength(1)
   })
 
+  it('R-C-15：数据源类型切换（工作区文件 → 全局状态）有明确提示，不再静默', () => {
+    const warnings: string[] = []
+    const controller = makeController((message) => warnings.push(message))
+    expect(controller.currentStore).toBeInstanceOf(JsonFileStore)
+    __stubs.workspaceFolders = undefined
+    __fireWorkspaceFoldersChanged()
+    expect(controller.currentStore).toBeInstanceOf(MementoStore)
+    expect(warnings.some((message) => message.includes('数据源已切换'))).toBe(true)
+    controller.dispose()
+  })
+
+  it('R-C-15：同类型内的路径变化（配置改动）不提示「数据源切换」', () => {
+    const warnings: string[] = []
+    const controller = makeController((message) => warnings.push(message))
+    __setConfig('crudStarter', 'storagePath', 'custom/data.json')
+    __fireConfigurationChange('crudStarter.storagePath')
+    expect(controller.currentStore).toBeInstanceOf(JsonFileStore)
+    expect(warnings.some((message) => message.includes('数据源已切换'))).toBe(false)
+    controller.dispose()
+  })
+
+  it('R-C-16：配置恢复合法后，同一非法值再次出现仍会提示（去重记忆被重置）', () => {
+    const controller = makeController()
+    __setConfig('crudStarter', 'storagePath', '../escape.json')
+    __fireConfigurationChange('crudStarter.storagePath')
+    expect(countInvalidPathWarnings()).toBe(1)
+    // 改回合法值：清除「同一非法值只提示一次」的记忆
+    __setConfig('crudStarter', 'storagePath', 'custom/data.json')
+    __fireConfigurationChange('crudStarter.storagePath')
+    // 再输回同一个非法值：旧实现只增不减 → 静默；新实现应再次提示
+    __setConfig('crudStarter', 'storagePath', '../escape.json')
+    __fireConfigurationChange('crudStarter.storagePath')
+    expect(countInvalidPathWarnings()).toBe(2)
+    controller.dispose()
+  })
+
   it('service 实例在重建前后保持不变（命令注册引用不失效）', () => {
     const controller = makeController()
     const before = controller.service
@@ -211,6 +255,19 @@ describe('StorageController watcher 加固', () => {
     watcher.__fireChange() // 自身保存引起的文件事件
     await vi.advanceTimersByTimeAsync(300) // 防抖窗口到期
     expect(fires).toBe(before + 1) // 未触发 reload
+  })
+
+  it('R-C-5：事件产生于保存之前（用户编辑）→ 防抖后 reload，不被误判为自身写入', async () => {
+    await controller.service.create(draft('甲')) // 首次保存：lastPersistAt = T0
+    const before = fires
+    watcher.__fireChange() // 用户编辑文件：事件产生时刻 T1（早于接下来的保存）
+    await vi.advanceTimersByTimeAsync(10) // 推进 10ms：让随后的保存晚于事件产生
+    await controller.service.create(draft('乙')) // T2 = T1 + 10 保存（自身写入）
+    expect(fires).toBe(before + 1) // 仅 create 本身的 fire
+    await vi.advanceTimersByTimeAsync(300) // 防抖到期：按事件产生时刻 T1 判定
+    // 旧实现按定时器触发时刻（T1+300）距保存 T2 仅 290ms < 500ms → 误抑制、用户编辑丢失；
+    // 因果判定：事件早于最近保存 → 不可能是自身写入 → reload
+    expect(fires).toBe(before + 2)
   })
 
   it('保存 600ms 后的外部变更只 reload 一次（防抖合并 + 不再抑制）', async () => {

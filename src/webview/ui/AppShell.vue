@@ -78,24 +78,29 @@ withDefaults(
   padding: var(--ui-space-4) var(--ui-space-6) var(--ui-space-6);
 }
 
+/* R-U-2：窄屏同时收窄 header——否则标题左右 24px 与内容区 12px 错位 */
 @media (max-width: 400px) {
+  .app-shell__header {
+    padding: var(--ui-space-4) var(--ui-space-3) var(--ui-space-3);
+  }
+
   .app-shell__main {
     padding: var(--ui-space-4) var(--ui-space-3) var(--ui-space-6);
   }
 }
 
 .app-shell__main--form {
-  max-width: 560px;
+  max-width: var(--ui-shell-width-form);
   margin: 0 auto;
 }
 
 .app-shell__main--settings {
-  max-width: 720px;
+  max-width: var(--ui-shell-width-settings);
   margin: 0 auto;
 }
 
 .app-shell__main--wizard {
-  max-width: 960px;
+  max-width: var(--ui-shell-width-wizard);
   margin: 0 auto;
 }
 

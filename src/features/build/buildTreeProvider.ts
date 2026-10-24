@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import { COMMAND } from '../../constants'
+import { escapeMarkdownInline } from '../../ui/markdown'
 import type { BuildResult, BuildService, GitInfo } from './buildService'
 
 export type BuildNode =
@@ -47,9 +48,12 @@ export class BuildTreeProvider implements vscode.TreeDataProvider<BuildNode> {
               ? 'warning'
               : 'error'
         )
-        treeItem.tooltip = new vscode.MarkdownString(
-          `**编译结果**\n\n- 分支：${node.result.branch ?? '-'}\n- 状态：${node.result.status}\n- 耗时：${node.result.durationMs}ms\n- 完成于：${new Date(node.result.finishedAt).toLocaleString()}\n\n${node.result.message}`
+        // R-C-7：分支名与 message 含 git 输出路径等用户相关内容，拼 Markdown 前必须转义
+        const tooltip = new vscode.MarkdownString()
+        tooltip.appendMarkdown(
+          `**编译结果**\n\n- 分支：${escapeMarkdownInline(node.result.branch ?? '-')}\n- 状态：${node.result.status}\n- 耗时：${node.result.durationMs}ms\n- 完成于：${new Date(node.result.finishedAt).toLocaleString()}\n\n${escapeMarkdownInline(node.result.message)}`
         )
+        treeItem.tooltip = tooltip
         treeItem.contextValue = 'buildResult'
         return treeItem
       }

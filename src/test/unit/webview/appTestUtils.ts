@@ -11,7 +11,15 @@ type WindowLike = {
   dispatchEvent(event: unknown): boolean
 }
 
+/** 焦点断言用：jsdom 的 document（同样结构化 cast，避免依赖 DOM lib）。 */
+type DocumentLike = {
+  activeElement: unknown
+}
+
 export const browserWindow: WindowLike = (globalThis as unknown as { window: WindowLike }).window
+
+export const browserDocument: DocumentLike = (globalThis as unknown as { document: DocumentLike })
+  .document
 
 /** 模拟宿主 → 页面消息（window message 事件）。 */
 export function hostMessage(message: HostMessage): void {

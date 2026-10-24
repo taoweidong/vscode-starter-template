@@ -151,6 +151,36 @@ describe('itemFormPanel：submit 分流与错误回传', () => {
     })
   })
 
+  it('R-C-2：submit 携带扩展字段（owner）→ service.update 收到的对象保留 owner（编辑链路不断裂）', async () => {
+    const { deps, panels } = makePanelDeps()
+    const item = makeItem('id-1', '旧名')
+    const service = makeService([item])
+    ItemFormPanel.createOrShow(service, item, undefined, deps)
+    panels[0].webview.__emit({ type: 'ready' })
+    panels[0].webview.__emit({
+      type: 'submit',
+      draft: {
+        name: '新名',
+        category: '需求',
+        description: '描述',
+        priority: 'high',
+        tags: ['a'],
+        owner: '李四', // README「加字段」后的扩展字段：不得被面板边界白名单丢弃
+      },
+    })
+    await vi.waitFor(() => {
+      expect(service.update).toHaveBeenCalledWith(
+        'id-1',
+        expect.objectContaining({ name: '新名', owner: '李四' })
+      )
+    })
+    // 已知字段原样上交（预清洗已移除，类型校验交给服务层 coerceDraft）
+    const draftArg = (service.update as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as Record<string, unknown>
+    expect(draftArg.priority).toBe('high')
+    expect(draftArg.tags).toEqual(['a'])
+  })
+
   it('校验错误回传 error 且带 field（页面定位到 name 控件），面板保持打开', async () => {
     const { deps, panels } = makePanelDeps()
     const service = makeService()
@@ -208,6 +238,21 @@ describe('itemFormPanel：取消与切换目标', () => {
     expect(panels).toHaveLength(1)
     expect(panels[0].revealCalls).toBe(1)
     expect(panels[0].posted.length).toBe(postedBefore)
+  })
+
+  it('同目标（initial 键序不同）再次 createOrShow：仍判同目标，只 reveal 不重建（R-C-13）', async () => {
+    const { deps, panels } = makePanelDeps()
+    ItemFormPanel.createOrShow(makeService(), undefined, { name: '预填', category: '分类' }, deps)
+    await vi.waitFor(() => {
+      expect(panels).toHaveLength(1)
+    })
+    const postedBefore = panels[0].posted.length
+    // 键序不同的等价 initial：JSON.stringify 会误判「不同目标」触发重发 init，
+    // 稳定序列化按语义判等 → 只 reveal
+    ItemFormPanel.createOrShow(makeService(), undefined, { category: '分类', name: '预填' }, deps)
+    expect(panels).toHaveLength(1)
+    expect(panels[0].revealCalls).toBe(1)
+    expect(panels[0].posted.length).toBe(postedBefore) // 没有 new init
   })
 
   it('dirty 时切换目标：确认丢弃 → 重发 init（新目标）', async () => {

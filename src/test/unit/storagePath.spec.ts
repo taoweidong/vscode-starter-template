@@ -74,6 +74,11 @@ describe('resolveStorageUri 路径白名单', () => {
       ['glob 问号', 'a?.json'],
       ['glob 方括号', '[a].json'],
       ['glob 方括号（闭合）', 'a[b].json'],
+      // R-C-20：保留设备名按「首个点之前」判定，带扩展名同样不可用
+      ['Windows 保留设备名（con.json）', 'con.json'],
+      ['Windows 保留设备名（大写 NUL.json）', 'NUL.json'],
+      ['Windows 保留设备名（data/com1.json）', 'data/com1.json'],
+      ['Windows 保留设备名（data/lpt9.json）', 'data/lpt9.json'],
       ['非 .json 后缀（.txt）', 'data/items.txt'],
       ['无后缀', 'data/items'],
       ['目录结尾的 .json（非文件后缀语义）', 'data.json/'],
