@@ -179,3 +179,105 @@ describe('isHostMessage：导入向导消息', () => {
     expect(isHostMessage(sample)).toBe(false)
   })
 })
+
+/* ================= 串口命令控制台消息守卫（docs/superpowers/specs 2026-10-24 §5.4） ================= */
+
+const serialServer = {
+  id: 'srv-1',
+  name: '服务器甲',
+  serialPath: 'COM3',
+  baudRate: 115200,
+  dataBits: 8,
+  stopBits: 1,
+  parity: 'none',
+  flowControl: 'none',
+  lineEnding: 'lf',
+  autoLogin: false,
+  username: '',
+  description: '',
+  createdAt: 1,
+  updatedAt: 1,
+}
+
+const historyEntry = { id: 'h1', command: 'show version', lastUsedAt: 1, useCount: 2 }
+
+describe('isWebviewMessage：串口控制台消息', () => {
+  it.each([
+    ['serialPortsRequest', { type: 'serialPortsRequest' }],
+    ['serialServersRequest', { type: 'serialServersRequest' }],
+    ['serialServerSave 最小', { type: 'serialServerSave', draft: { name: '甲' } }],
+    [
+      'serialServerSave 带密码',
+      { type: 'serialServerSave', draft: { name: '甲' }, password: 'secret' },
+    ],
+    ['serialServerDelete', { type: 'serialServerDelete', id: 'srv-1' }],
+    ['serialConnect', { type: 'serialConnect', serverId: 'srv-1' }],
+    ['serialDisconnect', { type: 'serialDisconnect' }],
+    ['serialSend', { type: 'serialSend', command: 'show version' }],
+    ['commandHistoryRequest', { type: 'commandHistoryRequest' }],
+    ['commandHistoryRemove', { type: 'commandHistoryRemove', id: 'h1' }],
+    ['commandHistoryClear', { type: 'commandHistoryClear' }],
+  ])('接受合法消息：%s', (_name, sample) => {
+    expect(isWebviewMessage(sample)).toBe(true)
+  })
+
+  it.each([
+    ['serialServerSave 缺 draft', { type: 'serialServerSave' }],
+    ['serialServerSave.draft 非对象', { type: 'serialServerSave', draft: 'x' }],
+    ['serialServerSave.password 非字符串', { type: 'serialServerSave', draft: {}, password: 42 }],
+    ['serialServerDelete 缺 id', { type: 'serialServerDelete' }],
+    ['serialServerDelete.id 非字符串', { type: 'serialServerDelete', id: 7 }],
+    ['serialConnect 缺 serverId', { type: 'serialConnect' }],
+    ['serialConnect.serverId null', { type: 'serialConnect', serverId: null }],
+    ['serialSend 缺 command', { type: 'serialSend' }],
+    ['serialSend.command 非字符串', { type: 'serialSend', command: [] }],
+    ['commandHistoryRemove.id 非字符串', { type: 'commandHistoryRemove', id: true }],
+  ])('拒绝非法消息：%s', (_name, sample) => {
+    expect(isWebviewMessage(sample)).toBe(false)
+  })
+})
+
+describe('isHostMessage：串口控制台消息', () => {
+  it.each([
+    ['serialPorts', { type: 'serialPorts', ports: [{ path: 'COM3' }, { path: 'COM4', manufacturer: 'USB' }] }],
+    ['serialPorts 空数组', { type: 'serialPorts', ports: [] }],
+    ['serialServers', { type: 'serialServers', servers: [serialServer] }],
+    ['serialState 已连接', { type: 'serialState', serverId: 'srv-1', state: 'connected' }],
+    ['serialState 断开（serverId=null）', { type: 'serialState', serverId: null, state: 'disconnected' }],
+    ['serialState 带错误', { type: 'serialState', serverId: 'srv-1', state: 'error', error: 'COM 被占用' }],
+    ['serialData', { type: 'serialData', seq: 1, text: 'Ubuntu 22.04' }],
+    ['commandHistory', { type: 'commandHistory', entries: [historyEntry] }],
+    ['commandHistory 空数组', { type: 'commandHistory', entries: [] }],
+  ])('接受合法消息：%s', (_name, sample) => {
+    expect(isHostMessage(sample)).toBe(true)
+  })
+
+  it.each([
+    ['serialPorts 缺 ports', { type: 'serialPorts' }],
+    ['serialPorts.ports 非数组', { type: 'serialPorts', ports: 'COM3' }],
+    ['serialPorts.ports 元素缺 path', { type: 'serialPorts', ports: [{ manufacturer: 'USB' }] }],
+    ['serialServers.ports 元素缺 name', { type: 'serialServers', servers: [{ id: '1' }] }],
+    [
+      'serialServers 元素 baudRate 非数字',
+      { type: 'serialServers', servers: [{ ...serialServer, baudRate: '115200' }] },
+    ],
+    [
+      'serialServers 元素 autoLogin 非布尔',
+      { type: 'serialServers', servers: [{ ...serialServer, autoLogin: 1 }] },
+    ],
+    ['serialState 缺 state', { type: 'serialState', serverId: 'srv-1' }],
+    ['serialState.state 非法字面量', { type: 'serialState', serverId: 'srv-1', state: 'open' }],
+    ['serialState.serverId 数字', { type: 'serialState', serverId: 1, state: 'connected' }],
+    ['serialState.error 非字符串', { type: 'serialState', serverId: null, state: 'error', error: 42 }],
+    ['serialData 缺 seq', { type: 'serialData', text: 'x' }],
+    ['serialData.seq 非数字', { type: 'serialData', seq: '1', text: 'x' }],
+    ['serialData.text 非字符串', { type: 'serialData', seq: 1, text: null }],
+    ['commandHistory 元素缺 useCount', { type: 'commandHistory', entries: [{ id: 'h1', command: 'x', lastUsedAt: 1 }] }],
+    [
+      'commandHistory 元素 command 非字符串',
+      { type: 'commandHistory', entries: [{ id: 'h1', command: 1, lastUsedAt: 1, useCount: 1 }] },
+    ],
+  ])('拒绝非法消息：%s', (_name, sample) => {
+    expect(isHostMessage(sample)).toBe(false)
+  })
+})
