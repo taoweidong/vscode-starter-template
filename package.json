@@ -1,7 +1,7 @@
 {
   "name": "vscode-starter-template",
-  "displayName": "CRUD Starter（界面化增删改查模板）",
-  "description": "VSCode 插件初始化项目：提供界面化增删改查操作（侧边栏树视图 + Webview 表单 + 全套菜单/右键菜单示例），数据源可替换，开箱即用、易于扩展。",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.7.0",
   "publisher": "your-publisher",
   "license": "MIT",
@@ -36,7 +36,7 @@
       "activitybar": [
         {
           "id": "crudStarter",
-          "title": "CRUD Starter",
+          "title": "%viewsContainers.title%",
           "icon": "media/icon.svg"
         }
       ]
@@ -45,115 +45,115 @@
       "crudStarter": [
         {
           "id": "crudStarter.envView",
-          "name": "环境信息"
+          "name": "%view.env.name%"
         },
         {
           "id": "crudStarter.initView",
-          "name": "环境初始化"
+          "name": "%view.init.name%"
         },
         {
           "id": "crudStarter.buildView",
-          "name": "分支编译"
+          "name": "%view.build.name%"
         },
         {
           "id": "crudStarter.serialServersView",
-          "name": "串口服务器"
+          "name": "%view.serialServers.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "crudStarter.refreshEnvironment",
-        "title": "刷新环境信息",
-        "category": "CRUD Starter",
+        "title": "%command.refreshEnvironment.title%",
+        "category": "%command.category%",
         "icon": "$(refresh)"
       },
       {
         "command": "crudStarter.showEnvironmentOutput",
-        "title": "打开环境信息输出",
-        "category": "CRUD Starter",
+        "title": "%command.showEnvironmentOutput.title%",
+        "category": "%command.category%",
         "icon": "$(output)"
       },
       {
         "command": "crudStarter.runAllInit",
-        "title": "全部初始化",
-        "category": "CRUD Starter",
+        "title": "%command.runAllInit.title%",
+        "category": "%command.category%",
         "icon": "$(checklist)"
       },
       {
         "command": "crudStarter.runInitStep",
-        "title": "执行初始化步骤",
-        "category": "CRUD Starter",
+        "title": "%command.runInitStep.title%",
+        "category": "%command.category%",
         "icon": "$(play)"
       },
       {
         "command": "crudStarter.buildBranch",
-        "title": "选择分支编译出包",
-        "category": "CRUD Starter",
+        "title": "%command.buildBranch.title%",
+        "category": "%command.category%",
         "icon": "$(package)"
       },
       {
         "command": "crudStarter.openGallery",
-        "title": "打开组件画廊",
-        "category": "CRUD Starter",
+        "title": "%command.openGallery.title%",
+        "category": "%command.category%",
         "icon": "$(library)"
       },
       {
         "command": "crudStarter.openSerialConsole",
-        "title": "打开串口控制台",
-        "category": "CRUD Starter",
+        "title": "%command.openSerialConsole.title%",
+        "category": "%command.category%",
         "icon": "$(terminal)"
       },
       {
         "command": "crudStarter.addSerialServer",
-        "title": "新增串口服务器",
-        "category": "CRUD Starter",
+        "title": "%command.addSerialServer.title%",
+        "category": "%command.category%",
         "icon": "$(add)"
       },
       {
         "command": "crudStarter.editSerialServer",
-        "title": "编辑串口服务器",
-        "category": "CRUD Starter"
+        "title": "%command.editSerialServer.title%",
+        "category": "%command.category%"
       },
       {
         "command": "crudStarter.deleteSerialServer",
-        "title": "删除串口服务器",
-        "category": "CRUD Starter"
+        "title": "%command.deleteSerialServer.title%",
+        "category": "%command.category%"
       },
       {
         "command": "crudStarter.connectSerialServer",
-        "title": "连接并打开控制台",
-        "category": "CRUD Starter",
+        "title": "%command.connectSerialServer.title%",
+        "category": "%command.category%",
         "icon": "$(plug)"
       },
       {
         "command": "crudStarter.refreshSerialServers",
-        "title": "刷新串口服务器列表",
-        "category": "CRUD Starter",
+        "title": "%command.refreshSerialServers.title%",
+        "category": "%command.category%",
         "icon": "$(refresh)"
       },
       {
         "command": "crudStarter.draftSelection",
-        "title": "登记选中文本到草稿箱",
-        "category": "CRUD Starter",
+        "title": "%command.draftSelection.title%",
+        "category": "%command.category%",
         "icon": "$(symbol-string)"
       },
       {
         "command": "crudStarter.appendDraftSelection",
-        "title": "追加选中文本到最近草稿",
-        "category": "CRUD Starter",
+        "title": "%command.appendDraftSelection.title%",
+        "category": "%command.category%",
         "icon": "$(add)"
       },
       {
         "command": "crudStarter.draftFile",
-        "title": "登记文件到草稿箱",
-        "category": "CRUD Starter",
+        "title": "%command.draftFile.title%",
+        "category": "%command.category%",
         "icon": "$(new-file)"
       },
       {
         "command": "crudStarter.draftFolder",
-        "title": "登记文件夹内容到草稿箱",
-        "category": "CRUD Starter",
+        "title": "%command.draftFolder.title%",
+        "category": "%command.category%",
         "icon": "$(folder-library)"
       }
     ],
@@ -285,17 +285,17 @@
       ]
     },
     "configuration": {
-      "title": "CRUD Starter",
+      "title": "%configuration.title%",
       "properties": {
         "crudStarter.runStartupTasks": {
           "type": "boolean",
           "default": false,
-          "description": "插件激活时自动执行启动任务（环境检测脚本）。默认关闭——改为点击「环境信息」视图的刷新按钮或单击单个探针条目按需检测。"
+          "description": "%configuration.runStartupTasks.description%"
         },
         "crudStarter.serialConsoleEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "启用串口服务器管理与命令控制台（服务器录入 / 命令下发 / 实时输出）。"
+          "description": "%configuration.serialConsoleEnabled.description%"
         }
       }
     }
