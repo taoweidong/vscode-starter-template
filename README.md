@@ -4,8 +4,8 @@
 可插拔环境探针、任务编排、HTTP 弹框对接（分支编译）、真实业务（串口控制台）四种典型模式，
 配 Webview 页面框架（Vue 3）与 VSCode 原生设计系统。克隆后照着示例加功能，全程不碰基座。
 
-> 📚 **详细操作指导**（环境准备 / 克隆代码 / 调试步骤 / 二次开发，含 8 张示意图）：
-> 见 [`docs/操作指导/`](https://github.com/taoweidong/vscode-starter-template/blob/main/docs/操作指导/README.md)；AI 编码代理请先读 [`agent.md`](https://github.com/taoweidong/vscode-starter-template/blob/main/agent.md)。
+> 📚 **文档总入口**：[`docs/README.md`](docs/README.md)——四层结构（操作指导 / 功能介绍 /
+> 开发指南 / 设计与决策）+ 「我想做什么」快速路由。AI 编码代理请先读 [`agent.md`](agent.md)。
 >
 > 🎯 **需求与优化方案**（需求细化 / 缺陷分析 / 技术选型 / 设计系统 / 路线图）：
 > 见 [`docs/需求与优化方案/`](https://github.com/taoweidong/vscode-starter-template/blob/main/docs/需求与优化方案/README.md)。
