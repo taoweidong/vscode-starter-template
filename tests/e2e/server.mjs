@@ -53,6 +53,7 @@ function buildCsp(nonce) {
 const PAGE_ENTRY_PATHS = {
   gallery: 'src/webview/apps/gallery/main.ts',
   serialConsole: 'src/webview/apps/serialConsole/main.ts',
+  buildConsole: 'src/webview/apps/buildConsole/main.ts',
 }
 
 const MIME_TYPES = {

@@ -6,8 +6,8 @@
 ## 项目概述
 
 - **是什么**：VSCode 扩展初始化模板（v1.0.0 起由「CRUD 演示集合」按 09 方案收敛重构）：
-  4 视图（环境信息 / 环境初始化 / 分支编译 / 串口服务器）+ 2 Webview 页面
-  （gallery 组件画廊 / serialConsole 串口控制台）+ 草稿箱右键示例（8 条入口）+
+  3 视图（环境信息 / 环境初始化 / 串口服务器）+ 3 Webview 页面
+  （gallery 组件画廊 / serialConsole 串口控制台 / buildConsole 分支编译弹框）+ 草稿箱右键示例（8 条入口）+
   启动任务框架（窗口加载完成自动执行：初始化脚本 + 环境探针）。
 - **技术栈**：TypeScript（strict，tsconfig node / webview 双工程）+ esbuild（宿主构建）+
   Vite（Webview 构建）+ Vitest（单测）+ mocha/@vscode/test-electron（集成）+ Playwright（e2e）。
@@ -124,8 +124,7 @@ src/test/（unit: Vitest + vscode 测试桩；集成: mocha + @vscode/test-elect
 
 - 集成测试依赖 `.vscode-test/` 缓存；删除后首次门禁/测试会重新下载 VS Code。
 - 工作区运行时数据文件（`.vscode/serial-servers.json`、`.vscode/*.drafts.json` 等）已
-  gitignore 且默认进 `DEFAULT_DIRTY_IGNORES`——新增工作区数据文件时两处必须同步
-  （字面量、无 glob），否则「用过一次 → 分支编译永远被脏检查自阻断」。
+  gitignore——新增落盘文件同步 `.gitignore`（v2.0 起本地脏检查随 BuildService 退役）。
 - 串口服务器数据在未打开工作区时退回全局存储（serverStore 的 Memento 双实现），属预期行为。
 - 发布到市场前：改 `publisher` 与 `repository` 即可（LICENSE / 128×128 图标 / categories
   等元数据已就绪，图标可用 `npx tsx scripts/generate-icon.ts` 从 SVG 重新生成）。

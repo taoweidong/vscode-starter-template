@@ -7,7 +7,7 @@
  *
  * 新增页面 = 本表一项 + apps/<pageId>/ 目录（FR-16-AC2）。
  */
-export type WebviewPageId = 'gallery' | 'serialConsole'
+export type WebviewPageId = 'gallery' | 'serialConsole' | 'buildConsole'
 
 export interface WebviewPageDef {
   /** 页面唯一 id，同时是 Vite 入口名与宿主 viewType 后缀 */
@@ -27,6 +27,7 @@ export interface WebviewPageDef {
 export const WEBVIEW_PAGES: readonly WebviewPageDef[] = [
   { id: 'gallery', title: '组件画廊（开发）', entry: 'src/webview/apps/gallery/main.ts' },
   { id: 'serialConsole', title: '串口控制台', entry: 'src/webview/apps/serialConsole/main.ts' },
+  { id: 'buildConsole', title: '分支编译', entry: 'src/webview/apps/buildConsole/main.ts' },
 ]
 
 /** 按 id 查页面定义；不存在返回 undefined（调用方需给出清晰错误）。 */

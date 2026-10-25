@@ -1,13 +1,8 @@
 import * as assert from 'assert'
-import * as cp from 'child_process'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
 import * as vscode from 'vscode'
 import { environmentTask } from '../extension/tasks/environmentTask'
 import { TaskRunner } from '../extension/tasks/taskRunner'
 import type { StartupTask, TaskResult } from '../extension/tasks/types'
-import { BuildService } from '../extension/features/build/buildService'
 import { InitService } from '../extension/features/init/initService'
 import type { InitStep } from '../extension/features/init/initSteps'
 
@@ -16,35 +11,6 @@ import type { InitStep } from '../extension/features/init/initSteps'
  * 条目 / 特性配置 / 静态配置 / 存储层四组已随领域删除，
  * 保留启动任务框架 / 环境初始化 / 分支编译三组（其余领域的深度覆盖在单测）。
  */
-
-/**
- * 清理测试临时目录。Windows 下 git 仓库的 .git 对象文件为只读，rmSync 会 EPERM——
- * 失败时先递归清除只读位再删（测试卫生规约：临时目录必须清理）。
- */
-function rmTempDir(dir: string): void {
-  try {
-    fs.rmSync(dir, { recursive: true, force: true })
-    return
-  } catch {
-    // 落入下方只读位清理流程
-  }
-  const clearReadOnly = (current: string): void => {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const child = path.join(current, entry.name)
-      if (entry.isDirectory()) {
-        clearReadOnly(child)
-      } else {
-        try {
-          fs.chmodSync(child, 0o666)
-        } catch {
-          // 尽力而为
-        }
-      }
-    }
-  }
-  clearReadOnly(dir)
-  fs.rmSync(dir, { recursive: true, force: true })
-}
 
 suite('启动任务框架', () => {
   function fakeTask(id: string, title: string, behavior: () => Promise<void>): StartupTask {
@@ -185,74 +151,5 @@ suite('环境初始化', () => {
     releaseFirst()
     await running
     assert.strictEqual(svc.getStates().find((state) => state.id === 'b')?.status, 'done')
-  })
-})
-
-suite('分支编译', () => {
-  test('getGitInfo 识别临时 git 仓库的分支清单与当前分支', async () => {
-    // P1-13 修复：用临时 git fixture 替代「断言本仓库必须在 main 分支」——
-    // 在 os.tmpdir 下自建仓库（初始分支 main + 额外分支），不再依赖开发机的分支状态
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'crud-git-fixture-'))
-    const git = (args: string[]): void => {
-      cp.execFileSync('git', args, { cwd: dir })
-    }
-    try {
-      git(['init'])
-      git(['symbolic-ref', 'HEAD', 'refs/heads/main']) // 兼容 git 默认分支名不同的环境
-      git(['config', 'user.email', 'test@example.com'])
-      git(['config', 'user.name', 'CRUD Test'])
-      fs.writeFileSync(path.join(dir, 'readme.md'), '# fixture\n')
-      git(['add', '.'])
-      git(['commit', '-m', 'init'])
-      git(['branch', 'feature-demo'])
-
-      const output = vscode.window.createOutputChannel('CRUD Starter Test')
-      const svc = new BuildService(output, () => dir)
-      const info = await svc.getGitInfo()
-      assert.strictEqual(info.available, true)
-      assert.strictEqual(info.current, 'main')
-      assert.ok(info.branches.includes('main'), '应包含初始分支 main')
-      assert.ok(info.branches.includes('feature-demo'), '应包含新建分支 feature-demo')
-    } finally {
-      rmTempDir(dir)
-    }
-  })
-
-  test('非 Git 目录返回 available=false 而不抛错', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    const svc = new BuildService(output, () => os.tmpdir())
-    const info = await svc.getGitInfo()
-    assert.strictEqual(info.available, false)
-  })
-
-  test('未打开工作区时返回 error 结果而不抛错', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    const svc = new BuildService(output, () => undefined)
-    const result = await svc.build()
-    assert.strictEqual(result.status, 'error')
-    assert.match(result.message, /未打开工作区/)
-  })
-
-  test('并发 build 被互斥拒绝（T5.4 / P1-10）：第二次返回「已有编译任务进行中」', async () => {
-    const output = vscode.window.createOutputChannel('CRUD Starter Test')
-    let releaseBuild!: (value: string) => void
-    const blocked = new Promise<string>((resolve) => {
-      releaseBuild = resolve
-    })
-    // 注入假执行器：npm run package 挂起等待手动放行，其余命令（git 查询 / vsce 探测）直接成功
-    const svc = new BuildService(output, () => path.resolve(__dirname, '..', '..'), {
-      runCommand: async (spec) =>
-        spec.args.includes('run') && spec.args.includes('package') ? blocked : '\n',
-    })
-    const first = svc.build()
-    await new Promise((resolve) => setTimeout(resolve, 100)) // 等流程推进到构建步骤
-    assert.strictEqual(svc.isRunning, true)
-    const second = await svc.build()
-    assert.strictEqual(second.status, 'error')
-    assert.match(second.message, /已有编译任务进行中/)
-    releaseBuild('build ok')
-    const firstResult = await first
-    assert.strictEqual(firstResult.status, 'ok')
-    assert.strictEqual(svc.isRunning, false)
   })
 })

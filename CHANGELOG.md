@@ -6,6 +6,31 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-25
+
+### 变更（破坏性）
+
+- **分支编译重构为 Webview 弹框**：表单填写（分支名 / 构建类型 / 备注）→ 提交 HTTP
+  接口创建构建任务 → 轮询拉取任务列表展示（状态徽标 / 进度 / 3s 轮询）。
+  原 `buildView` 树视图与本地 git 流水线（`BuildService`：脏检查 / git checkout /
+  `npm run package` / vsce 打包，559 行）整体退役；`buildBranch` 命令改为打开弹框
+  （命令面板入口）。视图 4 → 3、页面 2 → 3、菜单 23 → 21、配置 2 → 3。
+
+### 新增
+
+- **构建任务 HTTP 客户端抽象**（`buildApiClient.ts`）：`baseUrl` 留空（默认）=
+  `StubBuildApiClient` 打桩模拟（内存任务表 + 定时器推进 queued → running →
+  success/failed，确定性失败规则：分支名含 fail）；配置
+  `extStarter.buildApiBaseUrl` 切换 `HttpBuildApiClient`（POST/GET /builds，
+  Node 20 全局 fetch）——真实服务端契约 = `BuildSubmitPayload` / `BuildTask`。
+- 协议新增 `buildList` / `buildListRequest` 分支（24 条）与 `BuildTaskWire` 线类型；
+  构建表单经 `BUILD_FIELD_DEFS` 字段表驱动（SchemaForm）。
+
+### 移除
+
+- `DEFAULT_DIRTY_IGNORES` 脏检查机制随 `BuildService` 退役（工作区数据文件仅保留
+  `.gitignore` 防护）；`extStarter.buildBranch` 不再有 view/title / inline 菜单入口。
+
 ## [1.0.0] - 2026-10-24
 
 ### 变更（破坏性）

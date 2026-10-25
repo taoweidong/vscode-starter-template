@@ -2,7 +2,7 @@
   "name": "vscode-starter-template",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "publisher": "your-publisher",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -54,10 +54,6 @@
           "name": "%view.init.name%"
         },
         {
-          "id": "extStarter.buildView",
-          "name": "%view.build.name%"
-        },
-        {
           "id": "extStarter.serialServersView",
           "name": "%view.serialServers.name%"
         }
@@ -92,7 +88,7 @@
         "command": "extStarter.buildBranch",
         "title": "%command.buildBranch.title%",
         "category": "%command.category%",
-        "icon": "$(package)"
+        "icon": "$(tools)"
       },
       {
         "command": "extStarter.openGallery",
@@ -177,11 +173,6 @@
           "group": "navigation@1"
         },
         {
-          "command": "extStarter.buildBranch",
-          "when": "view == extStarter.buildView",
-          "group": "navigation@1"
-        },
-        {
           "command": "extStarter.openSerialConsole",
           "when": "view == extStarter.serialServersView",
           "group": "navigation@1"
@@ -201,11 +192,6 @@
         {
           "command": "extStarter.runInitStep",
           "when": "view == extStarter.initView && viewItem == initStep",
-          "group": "inline@1"
-        },
-        {
-          "command": "extStarter.buildBranch",
-          "when": "view == extStarter.buildView && viewItem == buildBranch",
           "group": "inline@1"
         },
         {
@@ -298,6 +284,11 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.serialConsoleEnabled.description%"
+        },
+        "extStarter.buildApiBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.buildApiBaseUrl.description%"
         }
       }
     }

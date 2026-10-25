@@ -1,16 +1,14 @@
 import * as vscode from 'vscode'
 import { COMMAND } from '../constants'
-import type { BuildService } from '../features/build/buildService'
 import type { InitService } from '../features/init/initService'
 import { findProbeByLabel } from '../tasks/probes'
 import type { TaskRunner } from '../tasks/taskRunner'
 import { WebviewController } from '../../webview/host/webviewController'
-import { type CommandRegistrar, notifySuccess, showError, statusIcon } from './shared'
+import { type CommandRegistrar, statusIcon } from './shared'
 
 /**
  * 功能页面场景命令分组（C-15 拆分；09 方案阶段 2 后）——组件画廊 /
- * 环境信息 / 环境初始化 / 分支编译出包。
- * 特性配置 / 静态配置两组命令随领域删除；场景与菜单位置对照表见 README。
+ * 环境信息 / 环境初始化 / 分支编译（v2.0：Webview 弹框 buildConsole）。
  */
 
 /** 本组依赖（CommandDeps 中与本组相关的字段，由 index.ts 组装时整体传入）。 */
@@ -18,7 +16,8 @@ export interface PageCommandDeps {
   taskRunner: TaskRunner
   outputChannel: vscode.OutputChannel
   initService: InitService
-  buildService: BuildService
+  /** 打开分支编译弹框（v2.0：BuildConsolePanel.createOrShow，由 extension.ts 注入）。 */
+  openBuildConsole: () => void
   /** 扩展上下文：openGallery 打开画廊页面需要（WebviewController.createOrShow 第二参）。 */
   context: vscode.ExtensionContext
   /** 单探针重检（09 方案 §6.1：树节点单击「重新检测此项」的路由目标）。 */
@@ -26,8 +25,14 @@ export interface PageCommandDeps {
 }
 
 export function registerPageCommands(register: CommandRegistrar, deps: PageCommandDeps): void {
-  const { taskRunner, outputChannel, initService, buildService, context, recheckEnvironmentItem } =
-    deps
+  const {
+    taskRunner,
+    outputChannel,
+    initService,
+    openBuildConsole,
+    context,
+    recheckEnvironmentItem,
+  } = deps
 
   /* ---------- 开发用：组件画廊（设计系统视觉验收基准） ---------- */
   register(COMMAND.openGallery, () => {
@@ -77,20 +82,9 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
   })
 
   /* ---------- 功能页面：分支编译出包（任务自动化模式） ---------- */
-  register(COMMAND.buildBranch, (branch?: unknown) => {
-    const target = typeof branch === 'string' && branch ? branch : undefined
-    void buildService
-      .build(target)
-      .then((result) => {
-        if (result.status === 'ok') {
-          notifySuccess(result.message)
-        } else if (result.status === 'warn') {
-          // 有结果但带警告（如构建完成但存在告警）：黄条反馈而非红条
-          void vscode.window.showWarningMessage(result.message)
-        } else if (result.status === 'error') {
-          void vscode.window.showErrorMessage(result.message)
-        }
-      })
-      .catch((err) => showError(err))
+  // v2.0：分支编译 = Webview 弹框（表单提交 HTTP + 任务列表）；无参设计，
+  // 命令面板 / 菜单统一入口（原本地 git 流水线随 BuildService 退役）
+  register(COMMAND.buildBranch, () => {
+    openBuildConsole()
   })
 }

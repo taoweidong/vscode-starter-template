@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import type { BuildService } from '../features/build/buildService'
 import type { DraftBoxService } from '../features/drafts/draftBoxService'
 import type { InitService } from '../features/init/initService'
 import type { SerialConsoleController } from '../features/serialConsole/serialConsoleController'
@@ -14,7 +13,8 @@ export interface CommandDeps {
   taskRunner: TaskRunner
   outputChannel: vscode.OutputChannel
   initService: InitService
-  buildService: BuildService
+  /** 打开分支编译弹框（v2.0：BuildConsolePanel.createOrShow，extension.ts 注入闭包）。 */
+  openBuildConsole: () => void
   /** 串口命令控制台（树视图 + 面板 + 历史的扩展级组装单元） */
   serialConsole: SerialConsoleController
   /** 草稿箱（右键示例载体，09 方案 §3.5） */

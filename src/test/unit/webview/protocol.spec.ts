@@ -106,6 +106,67 @@ describe('isHostMessage', () => {
   })
 })
 
+/* ================= 分支编译构建任务消息守卫（v2.0 弹框改造） ================= */
+
+const buildTask = {
+  id: 'build-1',
+  branch: 'release/1.0.0',
+  buildType: 'full',
+  status: 'running',
+  progress: 42,
+  createdAt: '2026-10-25T00:00:00.000Z',
+}
+
+describe('isWebviewMessage：构建任务消息', () => {
+  it.each([['buildListRequest', { type: 'buildListRequest' }]])(
+    '接受合法消息：%s',
+    (_name, sample) => {
+      expect(isWebviewMessage(sample)).toBe(true)
+    }
+  )
+})
+
+describe('isHostMessage：构建任务消息', () => {
+  it.each([
+    ['buildList 单任务', { type: 'buildList', tasks: [buildTask] }],
+    ['buildList 空列表', { type: 'buildList', tasks: [] }],
+    [
+      'buildList 带可选字段',
+      {
+        type: 'buildList',
+        tasks: [
+          {
+            ...buildTask,
+            notes: '备注',
+            message: '构建中',
+            finishedAt: '2026-10-25T01:00:00.000Z',
+          },
+        ],
+      },
+    ],
+  ])('接受合法消息：%s', (_name, sample) => {
+    expect(isHostMessage(sample)).toBe(true)
+  })
+
+  it.each([
+    ['buildList 缺 tasks', { type: 'buildList' }],
+    ['buildList.tasks 非数组', { type: 'buildList', tasks: 'x' }],
+    ['buildList 元素缺 id', { type: 'buildList', tasks: [{ branch: 'x' }] }],
+    [
+      'buildList.status 非法字面量',
+      { type: 'buildList', tasks: [{ ...buildTask, status: 'done' }] },
+    ],
+    ['buildList.progress 非数字', { type: 'buildList', tasks: [{ ...buildTask, progress: '42' }] }],
+    [
+      'buildList.createdAt 非字符串',
+      { type: 'buildList', tasks: [{ ...buildTask, createdAt: 1 }] },
+    ],
+    ['buildList.notes 非字符串', { type: 'buildList', tasks: [{ ...buildTask, notes: 1 }] }],
+  ])('拒绝非法消息：%s', (_name, sample) => {
+    expect(isHostMessage(sample)).toBe(false)
+  })
+})
+
 /* ================= 串口命令控制台消息守卫（docs/superpowers/specs 2026-10-24 §5.4） ================= */
 
 const serialServer = {

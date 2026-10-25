@@ -1,7 +1,8 @@
 /**
  * 视图相关标识（与 package.json 的 contributes 保持一致，单一来源）。
  * 09 方案阶段 2：itemsView / featureConfigView / staticConfigView 三视图随
- * 条目 / 特性配置 / 静态配置领域删除，保留 4 视图。
+ * 条目 / 特性配置 / 静态配置领域删除；v2.0：buildView 树视图随分支编译改造为
+ * Webview 弹框（buildConsole 页面）删除，保留 3 视图。
  */
 export const VIEW = {
   /** ActivityBar 视图容器 ID */
@@ -10,8 +11,6 @@ export const VIEW = {
   envViewId: 'extStarter.envView',
   /** 环境初始化视图 ID */
   initViewId: 'extStarter.initView',
-  /** 分支编译视图 ID */
-  buildViewId: 'extStarter.buildView',
   /** 串口服务器树视图 ID */
   serialServersViewId: 'extStarter.serialServersView',
   /** 串口服务器树条目的 contextValue（未连接） */
@@ -37,8 +36,8 @@ export const COMMAND = {
   /** 环境初始化：执行单个步骤（树条目单击 / inline 按钮） */
   runInitStep: 'extStarter.runInitStep',
 
-  // 分支编译
-  /** 分支编译：选择分支并编译出包（树条目单击 / inline 按钮 / 标题栏） */
+  // 分支编译（v2.0：Webview 弹框 buildConsole，HTTP 接口打桩模拟）
+  /** 分支编译：打开构建控制台（表单提交 + 任务列表） */
   buildBranch: 'extStarter.buildBranch',
 
   // Webview 页面（Vue 3）
@@ -72,8 +71,7 @@ export const COMMAND = {
 
 /**
  * 配置项键名（对应设置里的 extStarter.*）。
- * 09 方案阶段 2：storagePath 与 6 个 features.* 特性开关随领域删除，
- * serialConsole 开关平铺为普通配置项（S1），配置 8 → 2。
+ * v2.0：新增 buildApiBaseUrl（分支编译 HTTP 接口基地址，留空 = 打桩模拟）。
  */
 export const CONFIG = {
   section: 'extStarter',
@@ -81,6 +79,11 @@ export const CONFIG = {
   runStartupTasks: 'runStartupTasks',
   /** 串口控制台开关（特性开关体系退场后平铺，09 §3.4/S1） */
   serialConsoleEnabled: 'serialConsoleEnabled',
+  /**
+   * 构建任务 HTTP 接口基地址（v2.0 分支编译改造）：
+   * 留空（默认）= 打桩模拟；填写后切换真实接口（POST/GET /builds）。
+   */
+  buildApiBaseUrl: 'buildApiBaseUrl',
 } as const
 
 /**
@@ -96,8 +99,7 @@ export const STORAGE = {
   serialServerSecretPrefix: 'extStarter.serialServer.',
   /**
    * 草稿箱数据文件（相对工作区根）。
-   * B3：该路径必须以字面量同步进 buildService 的 DEFAULT_DIRTY_IGNORES 与 .gitignore
-   * （脏检查匹配无 glob）；阶段 5 改名时三处一起换。
+   * 已同步进 .gitignore（v2.0 起脏检查随 BuildService 删除，不再有自阻断风险）。
    */
   draftsFileName: '.vscode/ext-starter.drafts.json',
 } as const

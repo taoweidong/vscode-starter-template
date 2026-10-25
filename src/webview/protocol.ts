@@ -59,6 +59,27 @@ export interface CommandHistoryWire {
   useCount: number
 }
 
+/** 构建任务状态（与 features/build/buildApiClient 的 BuildTaskStatus 对齐）。 */
+export type BuildTaskStatusWire = 'queued' | 'running' | 'success' | 'failed'
+
+/** 构建任务在协议层的最小结构面（HTTP 接口返回的任务快照，打桩模拟 / 真实接口同形）。 */
+export interface BuildTaskWire {
+  id: string
+  branch: string
+  buildType: string
+  status: BuildTaskStatusWire
+  /** 进度 0-100（queued 为 0） */
+  progress: number
+  notes?: string
+  /** 失败原因 / 完成摘要 */
+  message?: string
+  /** ISO 时间 */
+  createdAt: string
+  finishedAt?: string
+  /** 允许附加上位置元数据（与 FieldDef 同理，透传扩展字段） */
+  [extra: string]: unknown
+}
+
 /** 宿主 → Webview */
 export type HostMessage =
   | {
@@ -80,6 +101,8 @@ export type HostMessage =
   | { type: 'serialData'; seq: number; text: string }
   /** 命令历史（MRU 序，已去重） */
   | { type: 'commandHistory'; entries: CommandHistoryWire[] }
+  /** 构建任务列表全量（页面轮询 / 提交后刷新的应答） */
+  | { type: 'buildList'; tasks: BuildTaskWire[] }
 
 /** Webview → 宿主 */
 export type WebviewMessage =
@@ -107,6 +130,8 @@ export type WebviewMessage =
   | { type: 'commandHistoryRemove'; id: string }
   /** 清空历史 */
   | { type: 'commandHistoryClear' }
+  /** 请求构建任务列表全量（页面轮询） */
+  | { type: 'buildListRequest' }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -163,6 +188,24 @@ function isCommandHistoryWire(v: unknown): v is CommandHistoryWire {
   )
 }
 
+function isBuildTaskWire(v: unknown): v is BuildTaskWire {
+  return (
+    isPlainObject(v) &&
+    typeof v.id === 'string' &&
+    typeof v.branch === 'string' &&
+    typeof v.buildType === 'string' &&
+    (v.status === 'queued' ||
+      v.status === 'running' ||
+      v.status === 'success' ||
+      v.status === 'failed') &&
+    typeof v.progress === 'number' &&
+    typeof v.createdAt === 'string' &&
+    (v.notes === undefined || typeof v.notes === 'string') &&
+    (v.message === undefined || typeof v.message === 'string') &&
+    (v.finishedAt === undefined || typeof v.finishedAt === 'string')
+  )
+}
+
 /** 宿主收到消息时先过本守卫，再按 type 分发。 */
 export function isWebviewMessage(v: unknown): v is WebviewMessage {
   if (!isPlainObject(v)) {
@@ -196,6 +239,8 @@ export function isWebviewMessage(v: unknown): v is WebviewMessage {
     case 'commandHistoryRemove':
       return typeof v.id === 'string'
     case 'commandHistoryClear':
+      return true
+    case 'buildListRequest':
       return true
     default:
       return false
@@ -234,6 +279,8 @@ export function isHostMessage(v: unknown): v is HostMessage {
       return typeof v.seq === 'number' && typeof v.text === 'string'
     case 'commandHistory':
       return Array.isArray(v.entries) && v.entries.every(isCommandHistoryWire)
+    case 'buildList':
+      return Array.isArray(v.tasks) && v.tasks.every(isBuildTaskWire)
     default:
       return false
   }
