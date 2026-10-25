@@ -61,6 +61,11 @@ interface ManifestChunkLike {
   src?: unknown
 }
 
+/** chunk 判定（manifest 值可能是 `_` 前缀资源映射等非 chunk 项） */
+function isManifestChunk(value: unknown): value is ManifestChunkLike {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /** Node 的 CJS 加载器（Module._load 为非公开 API，仅用于 stub `vscode` 模块） */
 type ModuleLoad = (request: string, parent: unknown, isMain: boolean) => unknown
 interface NodeModuleConstructor {
@@ -221,6 +226,45 @@ export function checkManifestConsistency(root: string): void {
       ManifestChunkLike
     >
     const manifestKeys = new Set(Object.keys(manifest).filter((key) => !key.startsWith('_')))
+
+    // ---- 每页 CSS 链可达性（09 后 v2.1.2 教训）：tokens / codicon 缺失即整页裸文本，
+    // e2e 只断言字体与 DOM 测不出 CSS 缺失——在此按页静态封堵。
+    // 收集算法与 assetResolver.collectCssFiles 同构：入口 css + imports 链递归。
+    const cssCache = new Map<string, string>()
+    const readDistCss = (file: string): string => {
+      if (!cssCache.has(file)) {
+        try {
+          cssCache.set(file, readFileSync(path.join(root, 'dist', 'webview', file), 'utf8'))
+        } catch {
+          cssCache.set(file, '')
+        }
+      }
+      return cssCache.get(file) ?? ''
+    }
+    const collectPageCss = (entry: ManifestChunkLike): string[] => {
+      const css: string[] = []
+      const visited = new Set<ManifestChunkLike>()
+      const walk = (chunk: ManifestChunkLike): void => {
+        if (visited.has(chunk)) {
+          return
+        }
+        visited.add(chunk)
+        for (const file of Array.isArray(chunk.css) ? chunk.css : []) {
+          if (typeof file === 'string' && !css.includes(file)) {
+            css.push(file)
+          }
+        }
+        for (const key of Array.isArray(chunk.imports) ? chunk.imports : []) {
+          if (typeof key === 'string' && isManifestChunk(manifest[key])) {
+            walk(manifest[key])
+          }
+        }
+      }
+      walk(entry)
+      return css
+    }
+    const pageCssVerified = new Set<string>()
+
     for (const page of WEBVIEW_PAGES) {
       const candidateKeys = [page.id, page.entry]
       const matched = candidateKeys.some(
@@ -234,7 +278,41 @@ export function checkManifestConsistency(root: string): void {
         matched || matchedByField,
         `Webview manifest 缺少入口「${page.id}」（${page.entry}）。请先执行 npm run build:webview。`
       )
+
+      // 该页命中的 chunk（与 assetResolver 同一套匹配规则），取其 CSS 链做令牌核查
+      const pageChunk = [page.id, page.entry]
+        .map((key) => (manifestKeys.has(key) ? manifest[key] : undefined))
+        .find((chunk) => chunk && typeof chunk.file === 'string')
+      const pageEntry =
+        pageChunk ??
+        Object.values(manifest).find(
+          (chunk) =>
+            typeof chunk?.file === 'string' && (chunk.name === page.id || chunk.src === page.entry)
+        )
+      assert(pageEntry, `Webview manifest 无法定位入口「${page.id}」的 chunk`)
+      const pageCss = collectPageCss(pageEntry)
+      for (const file of pageCss) {
+        pageCssVerified.add(file)
+      }
+      const hasTokens = pageCss.some((file) => readDistCss(file).includes('--ui-bg:'))
+      assert(
+        hasTokens,
+        `页面「${page.id}」的 CSS 链缺少设计令牌（tokens.css）——全部 var(--ui-*) 将落空、` +
+          `整页裸文本。请在 apps/${page.id}/main.ts 顶部 import '../../ui/tokens.css'（v2.1.2 教训）。`
+      )
+      const hasCodicon = pageCss.some((file) => readDistCss(file).includes('codicon'))
+      assert(
+        hasCodicon,
+        `页面「${page.id}」的 CSS 链缺少 codicon 字体样式——请在 apps/${page.id}/main.ts ` +
+          `import '@vscode/codicons/dist/codicon.css'。`
+      )
     }
+
+    // 全局产物健康度：被引用的 CSS 至少存在一份 tokens / codicon（防内容漂移）
+    assert(
+      [...pageCssVerified].some((file) => readDistCss(file).includes('--ui-bg:')),
+      'dist/webview 的 CSS 产物中找不到设计令牌定义（--ui-bg）——tokens.css 未进任何 chunk。'
+    )
   } finally {
     nodeModule._load = origLoad
   }

@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-10-25
+
+### 变更（样式缺陷系统性封堵：v2.1.2 教训沉淀为两道永久防线）
+
+- **门禁逐页 CSS 链校验**（`scripts/checks/manifest.ts` 第 ⑥ 步）：每个 Webview 页面的
+  CSS 收集链（入口 + imports 递归，与 assetResolver 同构）必须包含设计令牌
+  （tokens.css）与 codicon 字体样式，缺失即红并给出修复指引。已反向验证：
+  移除 tokens 导入后门禁精准拦截。
+- **e2e 样式生效统一防线**（`helpers.loadPage`）：所有页面加载后断言 `--ui-border`
+  令牌已生效（判据用令牌存在性而非宽度——AppShell 有 full 全宽变体，宽度不可靠；
+  harness 主题注入只写 `--vscode-*`，无混淆）。
+
+### 排查结论
+
+- 全量核查三个页面（gallery / serialConsole / buildConsole）的构建产物 CSS 链：
+  tokens 与 codicon 均 ✅ 可达——**除 buildConsole（v2.1.2 已修）外无其他页面受影响**。
+
 ## [2.1.2] - 2026-10-25
 
 ### 修复

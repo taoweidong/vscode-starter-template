@@ -94,6 +94,17 @@ export async function loadPage(page: Page, pageId: string): Promise<void> {
   await page.waitForFunction(() => document.fonts.check('16px codicon'), undefined, {
     timeout: 5_000,
   })
+  // 样式生效防线（v2.1.2 教训）：tokens.css 缺失时全部 var(--ui-*) 落空。
+  // 判据用「令牌存在性」而非宽度——AppShell 有 full 全宽变体，宽度不可靠；
+  // harness 的主题注入只写 --vscode-*，--ui-* 只能来自 tokens.css 本身。
+  const uiBorder = await page
+    .locator('.app-shell__main')
+    .evaluate((el) => getComputedStyle(el).getPropertyValue('--ui-border'))
+  expect(
+    uiBorder,
+    '页面未加载设计令牌（--ui-border 为空）——tokens.css / CSS 收集链缺失' +
+      '（v2.1.2 事故：整页裸文本），排查 apps/<page>/main.ts 与门禁逐页 CSS 校验'
+  ).not.toBe('')
 }
 
 /** 模拟宿主下发消息：在 window 上派发 MessageEvent（页面监听 window 'message'）。 */
