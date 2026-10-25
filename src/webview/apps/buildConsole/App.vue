@@ -135,107 +135,123 @@ onBeforeUnmount(() => {
   <AppShell
     title="分支编译"
     subtitle="填写信息提交构建任务，列表实时展示任务状态（HTTP 接口当前为打桩模拟）"
-    width="form"
+    width="full"
   >
-    <!-- 卡片一：提交构建（表单） -->
-    <section v-if="initialized" class="build-form build-card" aria-label="构建任务表单">
-      <header class="build-card__header">
-        <h2 class="build-card__title">提交构建</h2>
-        <span class="build-card__hint">带 * 为必填</span>
-      </header>
+    <div class="build-layout">
+      <!-- 卡片一：提交构建（表单） -->
+      <section v-if="initialized" class="build-form build-card" aria-label="构建任务表单">
+        <header class="build-card__header">
+          <h2 class="build-card__title">提交构建</h2>
+          <span class="build-card__hint">带 * 为必填</span>
+        </header>
 
-      <SchemaForm
-        v-model="draft"
-        :schema="fields"
-        :errors="errors"
-        :disabled="submitting"
-        aria-label="构建任务表单"
-        @submit="onSubmit"
-      ></SchemaForm>
-
-      <p v-if="feedback" class="build-form__feedback" role="alert">{{ feedback }}</p>
-
-      <div class="build-card__actions">
-        <VButton
-          variant="primary"
-          icon="send"
-          :loading="submitting"
+        <SchemaForm
+          v-model="draft"
+          :schema="fields"
+          :errors="errors"
           :disabled="submitting"
-          @click="onSubmit"
-        >
-          提交构建
-        </VButton>
-      </div>
-    </section>
+          aria-label="构建任务表单"
+          @submit="onSubmit"
+        ></SchemaForm>
 
-    <!-- 卡片二：构建任务（历史列表） -->
-    <section class="build-list build-card" aria-label="构建任务列表">
-      <header class="build-card__header">
-        <h2 class="build-card__title">构建任务</h2>
-        <VBadge v-if="runningCount > 0" :label="`${runningCount} 个进行中`"></VBadge>
-        <VButton
-          class="build-card__header-action"
-          variant="secondary"
-          icon="refresh"
-          :disabled="!initialized"
-          @click="refresh"
-        >
-          刷新
-        </VButton>
-      </header>
+        <p v-if="feedback" class="build-form__feedback" role="alert">{{ feedback }}</p>
 
-      <VEmptyState
-        v-if="tasks.length === 0"
-        title="暂无构建任务"
-        description="填写上方表单提交第一个构建任务（当前为打桩模拟，接口返回模拟数据）。"
-        icon="info"
-      ></VEmptyState>
-
-      <ul v-else class="build-task-list">
-        <li v-for="task in tasks" :key="task.id" class="build-task">
-          <div class="build-task__head">
-            <span
-              class="build-task__dot"
-              :class="`build-task__dot--${STATUS_META[task.status].cls}`"
-              :title="STATUS_META[task.status].label"
-            ></span>
-            <span class="build-task__branch">{{ task.branch }}</span>
-            <VBadge :label="BUILD_TYPE_LABEL[task.buildType] ?? task.buildType"></VBadge>
-            <span
-              class="build-task__status"
-              :class="`build-task__status--${STATUS_META[task.status].cls}`"
-            >
-              {{ STATUS_META[task.status].label }}
-            </span>
-          </div>
-
-          <div
-            v-if="task.status === 'running'"
-            class="build-task__bar"
-            role="progressbar"
-            :aria-valuenow="task.progress"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-label="`构建进度 ${task.progress}%`"
+        <div class="build-card__actions">
+          <VButton
+            variant="primary"
+            icon="send"
+            :loading="submitting"
+            :disabled="submitting"
+            @click="onSubmit"
           >
-            <span class="build-task__bar-fill" :style="{ width: `${task.progress}%` }"></span>
-          </div>
+            提交构建
+          </VButton>
+        </div>
+      </section>
 
-          <p v-if="task.message" class="build-task__message">{{ task.message }}</p>
-          <p class="build-task__meta">
-            <template v-if="task.notes">备注：{{ task.notes }} · </template>
-            提交于 {{ formatTime(task.createdAt)
-            }}<template v-if="task.finishedAt">
-              · 结束于 {{ formatTime(task.finishedAt) }}</template
+      <!-- 卡片二：构建任务（历史列表） -->
+      <section class="build-list build-card" aria-label="构建任务列表">
+        <header class="build-card__header">
+          <h2 class="build-card__title">构建任务</h2>
+          <VBadge v-if="runningCount > 0" :label="`${runningCount} 个进行中`"></VBadge>
+          <VButton
+            class="build-card__header-action"
+            variant="secondary"
+            icon="refresh"
+            :disabled="!initialized"
+            @click="refresh"
+          >
+            刷新
+          </VButton>
+        </header>
+
+        <VEmptyState
+          v-if="tasks.length === 0"
+          title="暂无构建任务"
+          description="填写上方表单提交第一个构建任务（当前为打桩模拟，接口返回模拟数据）。"
+          icon="info"
+        ></VEmptyState>
+
+        <ul v-else class="build-task-list">
+          <li v-for="task in tasks" :key="task.id" class="build-task">
+            <div class="build-task__head">
+              <span
+                class="build-task__dot"
+                :class="`build-task__dot--${STATUS_META[task.status].cls}`"
+                :title="STATUS_META[task.status].label"
+              ></span>
+              <span class="build-task__branch">{{ task.branch }}</span>
+              <VBadge :label="BUILD_TYPE_LABEL[task.buildType] ?? task.buildType"></VBadge>
+              <span
+                class="build-task__status"
+                :class="`build-task__status--${STATUS_META[task.status].cls}`"
+              >
+                {{ STATUS_META[task.status].label }}
+              </span>
+            </div>
+
+            <div
+              v-if="task.status === 'running'"
+              class="build-task__bar"
+              role="progressbar"
+              :aria-valuenow="task.progress"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="`构建进度 ${task.progress}%`"
             >
-          </p>
-        </li>
-      </ul>
-    </section>
+              <span class="build-task__bar-fill" :style="{ width: `${task.progress}%` }"></span>
+            </div>
+
+            <p v-if="task.message" class="build-task__message">{{ task.message }}</p>
+            <p class="build-task__meta">
+              <template v-if="task.notes">备注：{{ task.notes }} · </template>
+              提交于 {{ formatTime(task.createdAt)
+              }}<template v-if="task.finishedAt">
+                · 结束于 {{ formatTime(task.finishedAt) }}</template
+              >
+            </p>
+          </li>
+        </ul>
+      </section>
+    </div>
   </AppShell>
 </template>
 
 <style scoped>
+/* ---- 双卡片栅格：宽面板并排（表单 5 : 任务 7），窄面板自动堆叠 ---- */
+.build-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--ui-space-4);
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .build-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ---- 卡片骨架：表单卡与列表卡共用，视觉分离两块内容 ---- */
 .build-card {
   border: 1px solid var(--ui-border);
@@ -244,8 +260,10 @@ onBeforeUnmount(() => {
   padding: var(--ui-space-4);
 }
 
-.build-card + .build-card {
-  margin-block-start: var(--ui-space-4);
+@media (max-width: 1000px) {
+  .build-card + .build-card {
+    margin-block-start: var(--ui-space-4);
+  }
 }
 
 .build-card__header {

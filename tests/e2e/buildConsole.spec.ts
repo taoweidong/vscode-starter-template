@@ -47,17 +47,24 @@ test('buildConsole：init 后表单渲染，空列表展示空态', async ({ pag
   await expectLastSentType(page, 'buildListRequest')
 })
 
-test('buildConsole：设计系统样式实际生效（令牌缺失回归防线，v2.1.2 教训）', async ({ page }) => {
+test('buildConsole：设计系统样式实际生效 + 主区占满面板（95% 宽度要求）', async ({ page }) => {
   // CSS 收集链断裂时页面退化为裸文本（v2.1.1 实测事故）：main.ts 漏 import tokens.css
-  // → 全部 var(--ui-*) 落空 → 卡片无边框、AppShell 宽度不限。此处锁定两个可观测效果：
+  // → 全部 var(--ui-*) 落空 → 卡片无边框、宽度约束消失。锁定三个可观测效果：
+  const viewportWidth = page.viewportSize()?.width ?? 1280
   const mainWidth = await page
-    .locator('.app-shell__main--form')
+    .locator('.app-shell__main--full')
     .evaluate((el) => el.getBoundingClientRect().width)
-  expect(mainWidth, 'AppShell form 宽度令牌应生效（裸文本时为全宽）').toBeLessThan(800)
+  expect(
+    mainWidth,
+    '主区应占面板宽度 95% 左右（full 变体 + 内边距；裸文本/窄宽度变体均不满足）'
+  ).toBeGreaterThan(viewportWidth * 0.9)
   const cardBorderStyle = await page
     .locator('.build-form')
     .evaluate((el) => getComputedStyle(el).borderTopStyle)
   expect(cardBorderStyle, '表单卡片边框应生效').toBe('solid')
+  // 双卡片栅格：表单卡与任务卡并排（宽面板）
+  await expect(page.locator('.build-form')).toBeVisible()
+  await expect(page.locator('.build-list')).toBeVisible()
 })
 
 test('buildConsole：填写提交 → submit 草稿正确（含默认构建类型）', async ({ page }) => {
