@@ -2,7 +2,7 @@
   "name": "vscode-starter-template",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "publisher": "your-publisher",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -163,6 +163,24 @@
         "title": "%command.buildRefreshTasks.title%",
         "category": "%command.category%",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "extStarter.copySelection",
+        "title": "%command.copySelection.title%",
+        "category": "%command.category%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "extStarter.copyFileContent",
+        "title": "%command.copyFileContent.title%",
+        "category": "%command.category%",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "extStarter.copyFilePath",
+        "title": "%command.copyFilePath.title%",
+        "category": "%command.category%",
+        "icon": "$(link)"
       }
     ],
     "menus": {
@@ -265,6 +283,11 @@
           "command": "extStarter.draftFile",
           "when": "editorIsOpen && editorHasSelection",
           "group": "9_starter@4"
+        },
+        {
+          "command": "extStarter.copySelection",
+          "when": "editorTextFocus && editorHasSelection",
+          "group": "9_starter@5"
         }
       ],
       "explorer/context": [
@@ -282,6 +305,16 @@
           "command": "extStarter.draftFolder",
           "when": "explorerResourceIsFolder",
           "group": "9_starter@3"
+        },
+        {
+          "command": "extStarter.copyFileContent",
+          "when": "!explorerResourceIsFolder",
+          "group": "9_starter@4"
+        },
+        {
+          "command": "extStarter.copyFilePath",
+          "when": "!explorerResourceIsFolder",
+          "group": "9_starter@5"
         }
       ],
       "editor/title": [

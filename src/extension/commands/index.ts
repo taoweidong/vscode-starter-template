@@ -3,6 +3,7 @@ import type { DraftBoxService } from '../features/drafts/draftBoxService'
 import type { InitService } from '../features/init/initService'
 import type { SerialConsoleController } from '../features/serialConsole/serialConsoleController'
 import type { TaskRunner } from '../tasks/taskRunner'
+import { registerCopyCommands } from './copyCommands'
 import { registerDraftCommands } from './draftCommands'
 import { registerPageCommands } from './pageCommands'
 import { registerSerialConsoleCommands } from './serialConsoleCommands'
@@ -41,4 +42,5 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Command
   registerPageCommands(register, { ...deps, context })
   registerSerialConsoleCommands(register, { controller: deps.serialConsole, context })
   registerDraftCommands(register, { drafts: deps.drafts })
+  registerCopyCommands(register) // v2.2：拷贝示例（无宿主依赖，剪贴板即全部）
 }

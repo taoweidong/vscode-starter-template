@@ -74,6 +74,14 @@ export const COMMAND = {
   draftFile: 'extStarter.draftFile',
   /** 资源管理器右键：登记文件夹内容为草稿 */
   draftFolder: 'extStarter.draftFolder',
+
+  // 拷贝示例（v2.2：右键把内容拷贝出来到剪贴板——与草稿箱「落盘」对照的最基础示例）
+  /** 编辑器右键：复制选中文本到剪贴板 */
+  copySelection: 'extStarter.copySelection',
+  /** 资源管理器右键：复制文件内容到剪贴板（支持多选批量） */
+  copyFileContent: 'extStarter.copyFileContent',
+  /** 资源管理器右键：复制文件路径到剪贴板 */
+  copyFilePath: 'extStarter.copyFilePath',
 } as const
 
 /**

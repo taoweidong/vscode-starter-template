@@ -27,5 +27,8 @@
   "configuration.runStartupTasks.description": "插件激活时自动执行启动任务（初始化脚本「Hello World」+ 环境检测）。关闭后可在「环境信息」视图手动触发。",
   "configuration.serialConsoleEnabled.description": "启用串口服务器管理与命令控制台（服务器录入 / 命令下发 / 实时输出）。",
   "configuration.buildApiBaseUrl.description": "构建任务 HTTP 接口基地址（POST/GET /builds）。留空使用内置打桩模拟。",
-  "command.buildRefreshTasks.title": "刷新构建任务列表"
+  "command.buildRefreshTasks.title": "刷新构建任务列表",
+  "command.copySelection.title": "复制选中文本",
+  "command.copyFileContent.title": "复制文件内容",
+  "command.copyFilePath.title": "复制文件路径"
 }
