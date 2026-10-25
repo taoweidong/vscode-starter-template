@@ -88,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // 「构建任务」树视图：与弹框页同源数据；可见期轮询（onDidChangeVisibility 门控）
   const buildTasksProvider = new BuildTasksTreeProvider(buildConsoleServices.api)
   context.subscriptions.push(buildTasksProvider)
+  buildConsoleServices.onAfterSubmit = () => void buildTasksProvider.refresh()
   const buildTreeView = vscode.window.createTreeView(VIEW.buildViewId, {
     treeDataProvider: buildTasksProvider,
   })

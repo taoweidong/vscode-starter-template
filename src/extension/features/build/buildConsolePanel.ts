@@ -23,6 +23,12 @@ import { createBuildApiClient, type BuildApiClient, type BuildTask } from './bui
 export interface BuildConsoleServices {
   api: BuildApiClient
   output: vscode.OutputChannel
+  /**
+   * 任务变更回调（v2.1.1）：弹框提交成功后由 onSubmit 触发——
+   * extension.ts 接到「构建任务」树视图的 refresh，实现事件驱动即时刷新
+   * （否则树视图最长要等 3s 轮询才出现新任务）。
+   */
+  onAfterSubmit?: () => void
 }
 
 /** 组装服务（extension.ts 调用一次；baseUrl 配置决定打桩 / 真实）。 */
@@ -43,6 +49,7 @@ export function toBuildTaskWire(task: BuildTask): BuildTaskWire {
 
 export function createBuildConsoleDeps(services: BuildConsoleServices): WebviewControllerDeps {
   const { api, output } = services
+  const { onAfterSubmit } = services
 
   async function pushList(): Promise<void> {
     const tasks = await api.list()
@@ -71,6 +78,7 @@ export function createBuildConsoleDeps(services: BuildConsoleServices): WebviewC
       const task = await api.submit({ branch, buildType, notes })
       output.appendLine(`[分支编译] 任务已受理：${task.id}（${task.status}）`)
       await pushList()
+      onAfterSubmit?.() // 事件驱动：侧边栏「构建任务」树视图即时刷新（不等轮询）
     },
 
     onPageMessage: (message) => {
@@ -94,6 +102,7 @@ export class BuildConsolePanel {
   static createOrShow(services: BuildConsoleServices): void {
     const context = BuildConsolePanel.context
     if (!context) {
+      console.error('[buildConsole] createOrShow 早退：扩展上下文未注入（configure 未调用）')
       void vscode.window.showErrorMessage(
         '分支编译面板未完成装配（缺少扩展上下文），请重新加载窗口。'
       )

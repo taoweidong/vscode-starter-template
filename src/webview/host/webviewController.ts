@@ -128,7 +128,18 @@ export class WebviewController {
     }
     const controller = new WebviewController(pageId, context, deps)
     WebviewController.controllers.set(controller.page.id, controller)
-    void controller.open()
+    // open() 失败不再静默：面板创建 / 资源装配抛错时如实提示并清理注册表，
+    // 避免「命令执行了但什么都没发生」的无反馈失败（v2.1 实测排查）
+    void controller.open().catch((err: unknown) => {
+      const reason = err instanceof Error ? err.message : String(err)
+      // console 同时输出：outputChannel 在无窗口环境（测试宿主）不可读，保证可诊断
+      console.error(`[webview] 页面「${pageId}」打开失败：${reason}`)
+      controller.deps.log(`页面「${pageId}」打开失败：${reason}`)
+      if (WebviewController.controllers.get(controller.page.id) === controller) {
+        WebviewController.controllers.delete(controller.page.id)
+      }
+      void vscode.window.showErrorMessage(`页面「${controller.page.title}」打开失败：${reason}`)
+    })
     return controller
   }
 

@@ -1,5 +1,16 @@
 import * as assert from 'assert'
 import * as vscode from 'vscode'
+import { setTimeout as delay } from 'node:timers/promises'
+
+/** 轮询等待面板标签页出现（面板创建是异步装配，命令返回时不一定已入 tabGroups）。 */
+async function vi_tabWait(hasPanel: () => boolean): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    if (hasPanel()) {
+      return
+    }
+    await delay(200)
+  }
+}
 import { environmentTask } from '../extension/tasks/environmentTask'
 import { TaskRunner } from '../extension/tasks/taskRunner'
 import type { StartupTask, TaskResult } from '../extension/tasks/types'
@@ -151,5 +162,28 @@ suite('环境初始化', () => {
     releaseFirst()
     await running
     assert.strictEqual(svc.getStates().find((state) => state.id === 'b')?.status, 'done')
+  })
+})
+
+suite('分支编译（v2.1 端到端冒烟）', () => {
+  test('buildBranch 打开弹框：真实宿主出现面板标签页；buildRefreshTasks 可执行', async () => {
+    await vscode.commands.executeCommand('extStarter.buildBranch')
+    // 经公开 API 断言（测试进程与扩展 bundle 是两个模块实例，不能查内部注册表）：
+    // 面板创建成功 ⇔ 出现 viewType 匹配的编辑器标签页
+    const hasPanel = (): boolean =>
+      vscode.window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .some((tab) => {
+          // 测试宿主的 Tab 不暴露 viewType（proposed API，dump 实证为 undefined）：
+          // 兼容 label 匹配（webview 面板标签 = 页面标题「分支编译」）
+          const viewType = String((tab as unknown as { viewType?: string }).viewType ?? '')
+          return viewType.endsWith('.buildConsole') || (tab.label ?? '').includes('分支编译')
+        })
+    await vi_tabWait(hasPanel)
+    assert.ok(hasPanel(), '分支编译弹框面板应已创建（tabGroups 可见）')
+
+    await assert.doesNotReject(async () => {
+      await vscode.commands.executeCommand('extStarter.buildRefreshTasks')
+    }, '刷新命令应可执行（树视图 + provider 接线成功）')
   })
 })
