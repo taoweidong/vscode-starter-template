@@ -4,7 +4,7 @@
   "viewsContainers.title": "Extension Starter",
   "view.env.name": "Environment",
   "view.init.name": "Environment Setup",
-  "view.build.name": "Branch Build",
+  "view.build.name": "Build Tasks",
   "view.serialServers.name": "Serial Servers",
   "command.category": "Extension Starter",
   "command.refreshEnvironment.title": "Refresh Environment",

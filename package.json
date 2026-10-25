@@ -55,7 +55,7 @@
         },
         {
           "id": "extStarter.buildView",
-          "name": "构建任务"
+          "name": "%view.build.name%"
         },
         {
           "id": "extStarter.serialServersView",

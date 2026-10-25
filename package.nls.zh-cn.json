@@ -4,7 +4,7 @@
   "viewsContainers.title": "扩展模板",
   "view.env.name": "环境信息",
   "view.init.name": "环境初始化",
-  "view.build.name": "分支编译",
+  "view.build.name": "构建任务",
   "view.serialServers.name": "串口服务器",
   "command.category": "扩展模板",
   "command.refreshEnvironment.title": "刷新环境信息",
