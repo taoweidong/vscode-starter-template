@@ -6,6 +6,7 @@ import {
   createBuildConsoleDeps,
   createBuildConsoleServices,
 } from './features/build/buildConsolePanel'
+import { BuildTasksTreeProvider } from './features/build/buildTasksTreeProvider'
 import { DraftBoxService } from './features/drafts/draftBoxService'
 import { InitService } from './features/init/initService'
 import { InitTreeProvider } from './features/init/initTreeProvider'
@@ -80,10 +81,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.createTreeView(VIEW.initViewId, { treeDataProvider: initProvider })
   )
 
-  // ---------- 分支编译（v2.0：Webview 弹框 + HTTP 打桩/真实接口） ----------
+  // ---------- 分支编译（v2.0：Webview 弹框 + HTTP 打桩/真实接口；v2.1：恢复侧边栏入口） ----------
   const buildConsoleServices = createBuildConsoleServices(outputChannel)
   context.subscriptions.push({ dispose: () => buildConsoleServices.api.dispose() })
   BuildConsolePanel.configure(context)
+  // 「构建任务」树视图：与弹框页同源数据；可见期轮询（onDidChangeVisibility 门控）
+  const buildTasksProvider = new BuildTasksTreeProvider(buildConsoleServices.api)
+  context.subscriptions.push(buildTasksProvider)
+  const buildTreeView = vscode.window.createTreeView(VIEW.buildViewId, {
+    treeDataProvider: buildTasksProvider,
+  })
+  context.subscriptions.push(
+    buildTreeView,
+    buildTreeView.onDidChangeVisibility((event) => buildTasksProvider.setPolling(event.visible))
+  )
+  buildTasksProvider.setPolling(buildTreeView.visible) // 初始可见性（事件只在变化时触发）
 
   // ---------- 串口命令控制台：控制器（共享链路/状态）+ 树视图 ----------
   const serialConsole = new SerialConsoleController(context, outputChannel)
@@ -119,6 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     outputChannel,
     initService,
     openBuildConsole: () => BuildConsolePanel.createOrShow(buildConsoleServices),
+    refreshBuildTasks: () => void buildTasksProvider.refresh(),
     serialConsole,
     drafts,
     recheckEnvironmentItem,

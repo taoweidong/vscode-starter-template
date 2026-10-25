@@ -15,6 +15,8 @@ export interface CommandDeps {
   initService: InitService
   /** 打开分支编译弹框（v2.0：BuildConsolePanel.createOrShow，extension.ts 注入闭包）。 */
   openBuildConsole: () => void
+  /** 刷新构建任务树视图（v2.1）。 */
+  refreshBuildTasks: () => void
   /** 串口命令控制台（树视图 + 面板 + 历史的扩展级组装单元） */
   serialConsole: SerialConsoleController
   /** 草稿箱（右键示例载体，09 方案 §3.5） */

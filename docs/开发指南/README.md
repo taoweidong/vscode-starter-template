@@ -38,5 +38,5 @@
 3. **工作区数据文件进 `.gitignore`**：新增落盘到 `.vscode/` 的数据文件必须同步
    `.gitignore`（v2.0 起本地脏检查随 BuildService 退役，历史教训见 03 篇文末）。
 
-> v2.0 注：原「分支编译视图（buildView 树视图 + BuildService 本地流水线）」已改造为
-> Webview 弹框 + HTTP 打桩接口（视图 4 → 3、页面 2 → 3，详见 CHANGELOG 2.0.0）。
+> v2.0 注：原「分支编译本地流水线（BuildService）」已改造为 Webview 弹框 + HTTP 打桩接口
+> （页面 2 → 3）；v2.1 恢复「构建任务」树视图作为侧边栏入口（数据与弹框同源）。

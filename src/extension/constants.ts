@@ -1,8 +1,9 @@
 /**
  * 视图相关标识（与 package.json 的 contributes 保持一致，单一来源）。
  * 09 方案阶段 2：itemsView / featureConfigView / staticConfigView 三视图随
- * 条目 / 特性配置 / 静态配置领域删除；v2.0：buildView 树视图随分支编译改造为
- * Webview 弹框（buildConsole 页面）删除，保留 3 视图。
+ * 条目 / 特性配置 / 静态配置领域删除；v2.0：分支编译改造为 Webview 弹框；
+ * v2.1：恢复「构建任务」树视图作为侧边栏入口（数据同一 HTTP 接口，见
+ * buildTasksTreeProvider）——纯弹框无任何常驻菜单是 v2.0 的实测回归。
  */
 export const VIEW = {
   /** ActivityBar 视图容器 ID */
@@ -11,8 +12,12 @@ export const VIEW = {
   envViewId: 'extStarter.envView',
   /** 环境初始化视图 ID */
   initViewId: 'extStarter.initView',
+  /** 构建任务树视图 ID（v2.1：分支编译侧边栏入口） */
+  buildViewId: 'extStarter.buildView',
   /** 串口服务器树视图 ID */
   serialServersViewId: 'extStarter.serialServersView',
+  /** 构建任务树条目的 contextValue */
+  buildTaskContextValue: 'buildTask',
   /** 串口服务器树条目的 contextValue（未连接） */
   serialServerContextValue: 'serialServer',
   /** 串口服务器树条目的 contextValue（已连接，图标/菜单可区分） */
@@ -39,6 +44,8 @@ export const COMMAND = {
   // 分支编译（v2.0：Webview 弹框 buildConsole，HTTP 接口打桩模拟）
   /** 分支编译：打开构建控制台（表单提交 + 任务列表） */
   buildBranch: 'extStarter.buildBranch',
+  /** 构建任务树视图标题栏：手动刷新任务列表（另有 3s 可见期自动轮询） */
+  buildRefreshTasks: 'extStarter.buildRefreshTasks',
 
   // Webview 页面（Vue 3）
   /** 打开组件画廊（开发用：设计系统视觉验收基准） */

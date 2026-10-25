@@ -18,6 +18,8 @@ export interface PageCommandDeps {
   initService: InitService
   /** 打开分支编译弹框（v2.0：BuildConsolePanel.createOrShow，由 extension.ts 注入）。 */
   openBuildConsole: () => void
+  /** 刷新构建任务树视图（v2.1：标题栏命令的路由目标）。 */
+  refreshBuildTasks: () => void
   /** 扩展上下文：openGallery 打开画廊页面需要（WebviewController.createOrShow 第二参）。 */
   context: vscode.ExtensionContext
   /** 单探针重检（09 方案 §6.1：树节点单击「重新检测此项」的路由目标）。 */
@@ -30,6 +32,7 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
     outputChannel,
     initService,
     openBuildConsole,
+    refreshBuildTasks,
     context,
     recheckEnvironmentItem,
   } = deps
@@ -83,8 +86,13 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
 
   /* ---------- 功能页面：分支编译出包（任务自动化模式） ---------- */
   // v2.0：分支编译 = Webview 弹框（表单提交 HTTP + 任务列表）；无参设计，
-  // 命令面板 / 菜单统一入口（原本地 git 流水线随 BuildService 退役）
+  // 命令面板 / 树视图标题栏 / 任务条目单击统一入口（原本地流水线随 BuildService 退役）
   register(COMMAND.buildBranch, () => {
     openBuildConsole()
+  })
+
+  // v2.1：构建任务树视图标题栏刷新
+  register(COMMAND.buildRefreshTasks, () => {
+    refreshBuildTasks()
   })
 }

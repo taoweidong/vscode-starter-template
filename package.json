@@ -2,7 +2,7 @@
   "name": "vscode-starter-template",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "publisher": "your-publisher",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -52,6 +52,10 @@
         {
           "id": "extStarter.initView",
           "name": "%view.init.name%"
+        },
+        {
+          "id": "extStarter.buildView",
+          "name": "构建任务"
         },
         {
           "id": "extStarter.serialServersView",
@@ -153,6 +157,12 @@
         "title": "%command.draftFolder.title%",
         "category": "%command.category%",
         "icon": "$(folder-library)"
+      },
+      {
+        "command": "extStarter.buildRefreshTasks",
+        "title": "%command.buildRefreshTasks.title%",
+        "category": "%command.category%",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -185,6 +195,16 @@
         {
           "command": "extStarter.refreshSerialServers",
           "when": "view == extStarter.serialServersView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "extStarter.buildBranch",
+          "when": "view == extStarter.buildView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "extStarter.buildRefreshTasks",
+          "when": "view == extStarter.buildView",
           "group": "navigation@3"
         }
       ],
