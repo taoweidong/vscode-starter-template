@@ -9,7 +9,9 @@ async function main(): Promise<void> {
     await runTests({
       extensionDevelopmentPath,
       extensionTestsPath,
-      launchArgs: ['--disable-extensions'],
+      // 打开仓库根作为工作区：草稿箱等「工作区数据落盘」流程需要真实 workspaceFolders
+      // （数据文件已被 gitignore 覆盖，测试收尾自行清理）
+      launchArgs: [extensionDevelopmentPath, '--disable-extensions'],
     })
   } catch (err) {
     console.error('集成测试运行失败：', err)

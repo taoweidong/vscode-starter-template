@@ -1,4 +1,7 @@
 import * as assert from 'assert'
+import * as nodeOs from 'node:os'
+import * as nodeFs from 'node:fs'
+import * as nodePath from 'node:path'
 import * as vscode from 'vscode'
 import { setTimeout as delay } from 'node:timers/promises'
 
@@ -185,5 +188,140 @@ suite('分支编译（v2.1 端到端冒烟）', () => {
     await assert.doesNotReject(async () => {
       await vscode.commands.executeCommand('extStarter.buildRefreshTasks')
     }, '刷新命令应可执行（树视图 + provider 接线成功）')
+  })
+})
+
+suite('全流程真实环境验证（真实编辑器 / 剪贴板 / 文件 / 草稿落盘）', () => {
+  /** 打开一个真实文档并把选区定为 (0,0)-(0,len) —— 与用户「选中一段文本」等价。 */
+  async function openWithSelection(content: string, end: number): Promise<void> {
+    const doc = await vscode.workspace.openTextDocument({ content, language: 'plaintext' })
+    const editor = await vscode.window.showTextDocument(doc)
+    editor.selection = new vscode.Selection(0, 0, 0, end)
+  }
+
+  test('复制选中文本：真编辑器选区 → 真剪贴板（精确内容）', async () => {
+    await openWithSelection('hello 世界 123', 5) // 选中 "hello"
+    await vscode.commands.executeCommand('extStarter.copySelection')
+    assert.strictEqual(await vscode.env.clipboard.readText(), 'hello')
+  })
+
+  test('复制文件内容 / 路径：真实临时文件 → 真剪贴板（多选批量）', async () => {
+    const dir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), 'crud-real-'))
+    const fileA = vscode.Uri.file(nodePath.join(dir, 'a.txt'))
+    const fileB = vscode.Uri.file(nodePath.join(dir, 'b.md'))
+    await vscode.workspace.fs.writeFile(fileA, Buffer.from('内容A', 'utf8'))
+    await vscode.workspace.fs.writeFile(fileB, Buffer.from('内容B', 'utf8'))
+    try {
+      await vscode.commands.executeCommand('extStarter.copyFileContent', fileA)
+      assert.strictEqual(await vscode.env.clipboard.readText(), '内容A')
+
+      await vscode.commands.executeCommand('extStarter.copyFileContent', fileA, [fileA, fileB])
+      const multi = await vscode.env.clipboard.readText()
+      assert.ok(multi.includes(`=== ${fileA.fsPath} ===`), '批量应有路径分隔头')
+      assert.ok(multi.includes('内容A') && multi.includes('内容B'))
+
+      await vscode.commands.executeCommand('extStarter.copyFilePath', fileA, [fileA, fileB])
+      assert.strictEqual(
+        await vscode.env.clipboard.readText(),
+        `${fileA.fsPath}
+${fileB.fsPath}`
+      )
+    } finally {
+      nodeFs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('草稿箱全流程：选中文本右键 → 真实落盘工作区数据文件 → 追加 → 内容断言', async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri
+    assert.ok(root, '集成测试宿主应打开工作区（仓库根）')
+    const draftsUri = vscode.Uri.joinPath(root, '.vscode/ext-starter.drafts.json')
+    // 清场：数据文件与原子写临时残留一并删除，保证「从空草稿箱开始」的真实流程
+    for (const name of await vscode.workspace.fs.readDirectory(
+      vscode.Uri.joinPath(root, '.vscode')
+    )) {
+      if (
+        name[0] === 'ext-starter.drafts.json' ||
+        name[0].startsWith('ext-starter.drafts.json.tmp-')
+      ) {
+        await vscode.workspace.fs.delete(vscode.Uri.joinPath(root, '.vscode', name[0]), {
+          recursive: true,
+        })
+      }
+    }
+
+    // 命令为 fire-and-forget（void addSelection().then(...)）：原子写异步完成，
+    // 轮询等待数据文件生成（真实用户视角 = 看到成功提示后数据已落盘）
+    const waitForDrafts = async (): Promise<string> => {
+      const startedAt = Date.now()
+      for (;;) {
+        try {
+          return Buffer.from(await vscode.workspace.fs.readFile(draftsUri)).toString('utf8')
+        } catch {
+          if (Date.now() - startedAt > 5000) {
+            throw new Error('草稿数据文件未在 5s 内生成（draftSelection 异步写失败）')
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+      }
+    }
+
+    await openWithSelection('草稿内容-全流程验证', 12) // 选中前 12 字符
+    await vscode.commands.executeCommand('extStarter.draftSelection')
+    const raw = await waitForDrafts()
+    const persisted = JSON.parse(raw) as {
+      schemaVersion: number
+      entries: { kind: string; title: string; detail: string }[]
+    }
+    assert.strictEqual(persisted.schemaVersion, 1)
+    assert.ok(persisted.entries.length >= 1, '落盘应产生草稿条目')
+    const latest = persisted.entries[0]
+    assert.strictEqual(latest.kind, 'selection')
+    assert.ok(latest.title.includes('草稿内容'), `标题应含选中摘要（实际：${latest.title}）`)
+
+    // 追加流程：再登记一次 → 追加到最近草稿 → detail 增长。
+    // 文件已存在，普通读取会立刻命中追加前的旧内容——按条件轮询到追加落盘为止
+    await openWithSelection('追加线索-XYZ', 8)
+    const appendResult = (await vscode.commands.executeCommand(
+      'extStarter.appendDraftSelection'
+    )) as { ok?: boolean; reason?: string; appended?: boolean } | undefined
+    assert.ok(appendResult?.ok, `追加命令应成功（返回：${JSON.stringify(appendResult)}）`)
+    const startedAt = Date.now()
+    for (;;) {
+      const data = JSON.parse(await waitForDrafts()) as {
+        entries: { detail: string }[]
+      }
+      if (data.entries[0]?.detail?.includes('追加线索-XYZ')) {
+        break
+      }
+      if (Date.now() - startedAt > 5000) {
+        assert.fail('追加未在 5s 内写入最近草稿 detail')
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
+    // 测试卫生：清掉本次产生的数据文件与临时残留（gitignore 已覆盖，不影响仓库状态）
+    for (const name of await vscode.workspace.fs.readDirectory(
+      vscode.Uri.joinPath(root, '.vscode')
+    )) {
+      if (
+        name[0] === 'ext-starter.drafts.json' ||
+        name[0].startsWith('ext-starter.drafts.json.tmp-')
+      ) {
+        await vscode.workspace.fs.delete(vscode.Uri.joinPath(root, '.vscode', name[0]), {
+          recursive: true,
+        })
+      }
+    }
+  })
+
+  test('分支编译弹框：命令打开面板；任务刷新命令可执行', async () => {
+    await vscode.commands.executeCommand('extStarter.buildBranch')
+    const hasPanel = vscode.window.tabGroups.all
+      .flatMap((group) => group.tabs)
+      .some((tab) => (tab.label ?? '').includes('分支编译'))
+    assert.ok(hasPanel, '弹框面板应已打开')
+    await assert.doesNotReject(async () => {
+      await vscode.commands.executeCommand('extStarter.buildRefreshTasks')
+    })
   })
 })

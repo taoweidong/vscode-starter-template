@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { COMMAND } from '../constants'
 import type { DraftBoxService } from '../features/drafts/draftBoxService'
-import type { CommandRegistrar } from './shared'
+import { type CommandRegistrar, showError } from './shared'
 
 /**
  * 草稿箱场景命令分组（09 方案 §3.5：右键示例的新载体）。
@@ -67,25 +67,46 @@ export function registerDraftCommands(register: CommandRegistrar, deps: DraftCom
       void vscode.window.showInformationMessage('编辑器中没有选中文本。')
       return
     }
-    void drafts.addSelection(selection.text, selection.source).then(notifyCount)
+    void drafts
+      .addSelection(selection.text, selection.source)
+      .then(notifyCount)
+      .catch((err: unknown) => showError(err))
   })
 
-  register(COMMAND.appendDraftSelection, () => {
-    if (!drafts.fileUri) {
-      unavailable()
-      return
-    }
-    const selection = currentSelection()
-    if (!selection) {
-      void vscode.window.showInformationMessage('编辑器中没有选中文本。')
-      return
-    }
-    void drafts.appendToLatest(selection.text, selection.source).then((appended) => {
-      void vscode.window.showInformationMessage(
-        appended ? `已追加到「${drafts.list()[0]?.title ?? ''}」。` : '草稿箱为空，已登记为新草稿。'
+  // 返回诊断结果对象（executeCommand 透传 handler 返回值）：供真实环境全流程验证断言
+  register(
+    COMMAND.appendDraftSelection,
+    (): Promise<Record<string, unknown>> | Record<string, unknown> => {
+      if (!drafts.fileUri) {
+        unavailable()
+        return { ok: false, reason: 'no-workspace' }
+      }
+      const selection = currentSelection()
+      if (!selection) {
+        void vscode.window.showInformationMessage('编辑器中没有选中文本。')
+        return {
+          ok: false,
+          reason: 'no-selection',
+          activeScheme: vscode.window.activeTextEditor?.document.uri.scheme ?? null,
+        }
+      }
+      return drafts.appendToLatest(selection.text, selection.source).then(
+        (appended) => {
+          void vscode.window.showInformationMessage(
+            appended
+              ? `已追加到「${drafts.list()[0]?.title ?? ''}」。`
+              : '草稿箱为空，已登记为新草稿。'
+          )
+          return { ok: true, appended }
+        },
+        (err: unknown) => {
+          // 命令不裸 reject：追加失败如实呈现（否则异步失败完全不可见）
+          showError(err)
+          return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+        }
       )
-    })
-  })
+    }
+  )
 
   register(COMMAND.draftFile, (uri?: unknown, uris?: unknown[]) => {
     if (!drafts.fileUri) {
@@ -96,7 +117,12 @@ export function registerDraftCommands(register: CommandRegistrar, deps: DraftCom
     const batch = Array.isArray(uris) ? uris.map(toUri).filter((u): u is vscode.Uri => !!u) : []
     const single = toUri(uri) ?? currentFileUri()
     if (batch.length > 1) {
-      void drafts.addFiles(batch).then(notifyCount)
+      void drafts
+        .addFiles(batch)
+        .then(notifyCount)
+        .catch((err: unknown) => {
+          showError(err)
+        })
       return
     }
     if (!single) {
