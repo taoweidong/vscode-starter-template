@@ -47,6 +47,10 @@ export function toBuildTaskWire(task: BuildTask): BuildTaskWire {
   return { ...task }
 }
 
+function reasonOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 export function createBuildConsoleDeps(services: BuildConsoleServices): WebviewControllerDeps {
   const { api, output } = services
   const { onAfterSubmit } = services
@@ -77,13 +81,25 @@ export function createBuildConsoleDeps(services: BuildConsoleServices): WebviewC
       output.appendLine(`[分支编译] 提交构建任务：${branch.trim()}（${buildType}）`)
       const task = await api.submit({ branch, buildType, notes })
       output.appendLine(`[分支编译] 任务已受理：${task.id}（${task.status}）`)
-      await pushList()
-      onAfterSubmit?.() // 事件驱动：侧边栏「构建任务」树视图即时刷新（不等轮询）
+      // 列表刷新失败不影响提交结论（任务已被受理）：只记日志，避免「假失败」诱发重复提交
+      try {
+        await pushList()
+        onAfterSubmit?.() // 事件驱动：侧边栏「构建任务」树视图即时刷新（不等轮询）
+      } catch (err) {
+        output.appendLine(`[分支编译] 提交成功但任务列表刷新失败：${reasonOf(err)}`)
+      }
     },
 
     onPageMessage: (message) => {
       if (message.type === 'buildListRequest') {
-        void pushList()
+        // 轮询失败如实反馈（此前 void 静默：真实接口异常时页面停留在旧数据且无任何提示）
+        void pushList().catch((err: unknown) => {
+          output.appendLine(`[分支编译] 任务列表拉取失败：${reasonOf(err)}`)
+          void WebviewController.get('buildConsole')?.post({
+            type: 'error',
+            message: `任务列表刷新失败：${reasonOf(err)}`,
+          })
+        })
       }
     },
 

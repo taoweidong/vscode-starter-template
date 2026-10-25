@@ -8,7 +8,7 @@ playwright-report
 test-results
 .zcode
 .ai-memory
-.crud-starter
+.ext-starter
 
 # 锁文件与二进制/矢量资源不做格式化
 package-lock.json

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { COMMAND } from '../constants'
-import { notifySuccess } from './shared'
+import { notifySuccess, showError } from './shared'
 import type { CommandRegistrar } from './shared'
 
 /**
@@ -20,6 +20,17 @@ const MAX_COPY_FILE_BYTES = 1024 * 1024
 function looksBinary(buffer: Uint8Array): boolean {
   const head = buffer.subarray(0, 8000)
   return head.some((byte) => byte === 0)
+}
+
+/** 剪贴板写入：失败如实呈现（命令不裸 reject / 不静默——v2.2.1 草稿命令的同类修复）。 */
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    await vscode.env.clipboard.writeText(text)
+    return true
+  } catch (err) {
+    showError(err)
+    return false
+  }
 }
 
 /** 入参归一化：explorer/context 传 (uri, uris[])，单选时 uris 可能缺省。 */
@@ -57,8 +68,10 @@ export function registerCopyCommands(register: CommandRegistrar): void {
       void vscode.window.showInformationMessage('编辑器中没有选中文本。')
       return
     }
-    void vscode.env.clipboard.writeText(text).then(() => {
-      notifySuccess(`已复制选中文本（${text.length} 字符）。`)
+    void writeClipboard(text).then((ok) => {
+      if (ok) {
+        notifySuccess(`已复制选中文本（${text.length} 字符）。`)
+      }
     })
   })
 
@@ -85,8 +98,12 @@ export function registerCopyCommands(register: CommandRegistrar): void {
         failures.push(`${target.path.split('/').pop() ?? target.fsPath}（${reason}）`)
       }
     }
-    if (parts.length > 0) {
-      await vscode.env.clipboard.writeText(parts.join('\n\n'))
+    if (parts.length === 0) {
+      void vscode.window.showWarningMessage(`未复制任何文件：${failures.join('、')}`)
+      return
+    }
+    if (!(await writeClipboard(parts.join('\n\n')))) {
+      return
     }
     if (failures.length > 0) {
       void vscode.window.showWarningMessage(
@@ -104,7 +121,9 @@ export function registerCopyCommands(register: CommandRegistrar): void {
       void vscode.window.showInformationMessage('没有可复制的文件。')
       return
     }
-    await vscode.env.clipboard.writeText(targets.map((target) => target.fsPath).join('\n'))
+    if (!(await writeClipboard(targets.map((target) => target.fsPath).join('\n')))) {
+      return
+    }
     notifySuccess(targets.length > 1 ? `已复制 ${targets.length} 个文件路径。` : '已复制文件路径。')
   })
 }

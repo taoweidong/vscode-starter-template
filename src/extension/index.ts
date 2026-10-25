@@ -39,13 +39,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(outputChannel)
 
   // 阶段 5.4（09 §5.2）：v0.x 旧命名数据一次性迁移（配置 / Memento；Secret 惰性搬迁）
-  void migrateLegacyKeys(context).then((migrated) => {
-    if (migrated) {
-      void vscode.window.showInformationMessage(
-        '已将旧版（v0.x）设置与数据迁移到新命名（extStarter），旧键已清理。'
-      )
-    }
-  })
+  void migrateLegacyKeys(context)
+    .then((migrated) => {
+      if (migrated) {
+        void vscode.window.showInformationMessage(
+          '已将旧版（v0.x）设置与数据迁移到新命名（extStarter），旧键已清理。'
+        )
+      }
+    })
+    .catch((err: unknown) => {
+      outputChannel.appendLine(`[迁移] 旧键迁移失败（不影响使用）：${String(err)}`)
+    })
 
   // ---------- 启动任务（环境信息） ----------
   const taskRunner = new TaskRunner(TASKS, outputChannel)
@@ -71,7 +75,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // ---------- 功能页面：环境初始化 / 分支编译（v2.0 弹框） ----------
   // 环境快照复用（P1-12）：初始化的 envSnapshot 步骤优先复用启动任务已缓存的结果
   const initService = new InitService(
-    createInitSteps({ getEnvironmentSnapshot: () => taskRunner.lastResults.at(-1) }),
+    createInitSteps({
+      getEnvironmentSnapshot: () =>
+        taskRunner.lastResults.find((result) => result.taskId === 'environment'),
+    }),
     outputChannel
   )
   context.subscriptions.push(initService)

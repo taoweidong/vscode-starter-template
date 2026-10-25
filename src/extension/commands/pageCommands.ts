@@ -61,8 +61,18 @@ export function registerPageCommands(register: CommandRegistrar, deps: PageComma
     void initService.runAll()
   })
 
-  register(COMMAND.runInitStep, async (stepId?: unknown) => {
-    if (typeof stepId === 'string') {
+  register(COMMAND.runInitStep, async (arg?: unknown) => {
+    // 树节点单击传 state.id（string）；view/item/context inline 按钮传树节点对象（{ id }）——
+    // 两者都归一化为步骤 id（评审修复：此前 inline ▶ 会落到 QuickPick 而非执行该步骤）
+    const stepId =
+      typeof arg === 'string'
+        ? arg
+        : typeof arg === 'object' &&
+            arg !== null &&
+            typeof (arg as { id?: unknown }).id === 'string'
+          ? (arg as { id: string }).id
+          : undefined
+    if (stepId) {
       void initService.runStep(stepId)
       return
     }

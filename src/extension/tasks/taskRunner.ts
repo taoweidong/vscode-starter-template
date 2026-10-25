@@ -145,7 +145,9 @@ export class TaskRunner implements vscode.Disposable {
     const missing = result.items.filter((entry) => entry.status !== 'ok').length
     result.status = missing === 0 ? 'ok' : 'warn'
     result.finishedAt = new Date().toISOString()
-    this.writeResult({ ...result, items: [item], durationMs: 0 })
+    this.output.appendLine(
+      `[启动任务] ${result.taskTitle}：已更新条目「${item.label}」（${item.description ?? ''}）`
+    )
     this._onDidChangeItems.fire()
     return true
   }

@@ -184,6 +184,9 @@ const steps: StepDef[] = [
         /^coverage\//, // 覆盖率报告（07 R-E-2）
         /\.vsix$/, // 旧的打包产物
         /(^|\/)agent\.md$/, // 代理约定文档
+        /^\.ext-starter\//, // 运行期工件目录（环境快照）
+        /^package\.bat$/, // Windows 开发者快捷入口
+        /^tsconfig\.node\.json$/, // 开发期类型配置
         /^node_modules\/(?!serialport|@serialport|node-gyp-build|debug|ms)(\/|$)/, // 只放行 serialport 运行时依赖树
       ]
       const bad = listed.filter((file) => forbidden.some((re) => re.test(file)))
@@ -330,7 +333,7 @@ if (failed) {
   process.exit(1)
 }
 if (fast) {
-  process.stdout.write('\n✓ 门禁（--fast）全部通过，已跳过第 8/9 步宿主集成测试\n')
+  process.stdout.write('\n✓ 门禁（--fast）全部通过，已跳过第 ⑧ 步（宿主集成测试）\n')
 } else {
   process.stdout.write('\n✓ 门禁全部通过，可以提交/推送\n')
 }

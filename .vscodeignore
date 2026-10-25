@@ -33,6 +33,9 @@ playwright-report/**
 coverage/**
 .prettierignore
 .prettierrc
+package.bat
+tsconfig.node.json
+.ext-starter/**
 .gitattributes
 .workbuddy/**
 release/**

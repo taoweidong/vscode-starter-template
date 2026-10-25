@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as nodeFs from 'node:fs'
 import * as nodeOs from 'node:os'
 import * as nodePath from 'node:path'
@@ -145,6 +145,39 @@ describe('注册完整性', () => {
       'extStarter.copyFilePath',
     ]) {
       expect(__stubs.registeredCommands.has(id)).toBe(true)
+    }
+  })
+})
+
+describe('剪贴板失败路径（命令不裸 reject / 不静默）', () => {
+  it('复制文件路径：剪贴板不可用 → 错误提示，无成功提示', async () => {
+    const root2 = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), 'crud-copy-fail-'))
+    try {
+      const file = nodePath.join(root2, 'x.txt')
+      nodeFs.writeFileSync(file, 'x', 'utf8')
+      const writeSpy = vi
+        .spyOn(vscode.env.clipboard, 'writeText')
+        .mockRejectedValue(new Error('剪贴板被占用'))
+      await invoke('extStarter.copyFilePath', vscode.Uri.file(file))
+      const error = __stubs.recorded.find((entry) => entry.kind === 'showErrorMessage')
+      expect(error).toBeDefined()
+      expect(__stubs.recorded.some((entry) => entry.kind === 'showInformationMessage')).toBe(false)
+      writeSpy.mockRestore()
+    } finally {
+      nodeFs.rmSync(root2, { recursive: true, force: true })
+    }
+  })
+
+  it('复制文件内容：全部被跳过时提示「未复制任何文件」', async () => {
+    const root2 = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), 'crud-copy-skip-'))
+    try {
+      const bin = nodePath.join(root2, 'bin.dat')
+      nodeFs.writeFileSync(bin, Buffer.from([0x00]))
+      await invoke('extStarter.copyFileContent', vscode.Uri.file(bin))
+      expect(lastWarn()).toContain('未复制任何文件')
+      expect(__stubs.clipboard).toBe('')
+    } finally {
+      nodeFs.rmSync(root2, { recursive: true, force: true })
     }
   })
 })

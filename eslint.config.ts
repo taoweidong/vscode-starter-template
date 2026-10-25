@@ -85,13 +85,5 @@ export default tseslint.config(
       'prefer-const': 'off',
     },
   },
-  {
-    // buildService：取消订阅句柄 let 声明后在子流程单点赋值（生命周期句柄模式；
-    // 09 方案阶段 4.3 迁至 src/extension/features/build/）
-    files: ['src/extension/features/build/buildService.ts'],
-    rules: {
-      'prefer-const': 'off',
-    },
-  },
   prettier
 )

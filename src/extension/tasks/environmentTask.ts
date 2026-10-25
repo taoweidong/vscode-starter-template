@@ -4,7 +4,8 @@ import * as vscode from 'vscode'
 import { ENVIRONMENT_PROBES, findProbeByLabel, type EnvironmentProbe } from './probes'
 import type { StartupTask, TaskContext, TaskItem, TaskResult, TaskStatus } from './types'
 
-const PROBE_TIMEOUT_MS = 8000
+// 单命令超时 6s：探针候选命令最坏 8 条 × 6s = 48s，留出余量低于任务超时 60s
+const PROBE_TIMEOUT_MS = 6000
 
 /**
  * 探测命令执行器：返回 (err, stdout, stderr) 三元组（与 node:child_process.exec 回调对齐）。

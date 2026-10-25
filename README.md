@@ -156,7 +156,7 @@ vscode-starter-template/
     │   ├── features/
     │   │   ├── drafts/           # 草稿箱：右键示例的数据落点（原子写 + 上限）
     │   │   ├── init/             # 环境初始化：步骤注册表 + 状态机
-    │   │   ├── build/            # 分支编译出包：脏检查 / 确认 / 进度 / 取消
+    │   │   ├── build/            # 分支编译：HTTP 弹框（表单提交 + 任务列表，打桩/真实接口）
     │   │   └── serialConsole/    # 串口控制台：存储 / 历史 / 链路 / 面板与树视图
     │   ├── providers/            # 树视图（环境信息）
     │   ├── services/             # 原子写 / 旧键迁移
@@ -167,12 +167,12 @@ vscode-starter-template/
     │       └── environmentTask.ts # 内置任务：遍历探针注册表 + 系统项
     ├── webview/                  # Webview 侧（不 import vscode；唯一契约 protocol.ts）
     │   ├── pages.ts              # ★ 页面注册表（gallery / serialConsole；新增页面在此登记）
-    │   ├── protocol.ts           # 宿主 ↔ 页面消息协议与运行时守卫（22 分支）
+    │   ├── protocol.ts           # 宿主 ↔ 页面消息协议与运行时守卫（24 分支）
     │   ├── formSchema.ts         # 表单字段派生（deriveFormSchema：领域无关）
     │   ├── host/                 # 宿主侧面板控制器 / HTML 外壳 / 资源解析
     │   ├── ui/                   # VSCode 原生设计系统（语义令牌 + 基础组件）
     │   ├── components/           # SchemaForm + 五类字段组件
-    │   └── apps/                 # 页面（gallery / serialConsole）
+    │   └── apps/                 # 页面（gallery / serialConsole / buildConsole）
     ├── ui/                       # 宿主侧共享（markdown 转义等）
     └── test/                     # 集成测试（mocha + @vscode/test-electron）+ 单测（vitest）
 ```

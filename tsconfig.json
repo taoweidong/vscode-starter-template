@@ -1,4 +1,7 @@
 {
+  // 解决方案入口（编辑器分派用）。类型检查请用 `npm run check-types`
+  //（tsc -p tsconfig.node.json + vue-tsc -p tsconfig.webview.json）；
+  // 直接 `tsc --noEmit` 在此配置下不含工程文件，属假绿路径。
   "files": [],
   "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.webview.json" }]
 }

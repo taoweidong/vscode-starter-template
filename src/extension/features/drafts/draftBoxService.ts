@@ -8,10 +8,15 @@ import { writeJsonAtomic } from '../../services/stores/atomicWrite'
  * 条目领域删除后，「宿主如何拿到编辑器 / 资源管理器上下文并写入工作区存储」这条
  * 教学链路由草稿箱承担：8 条右键入口（editor/context 4 + explorer/context 3 +
  * editor/title 1）全部落到 `.vscode/ext-starter.drafts.json`（B3：该路径须字面量
- * 进 DEFAULT_DIRTY_IGNORES 与 .gitignore，否则重演「用过一次 → 分支编译自阻断」）。
+ * 进 DEFAULT_DIRTY_IGNORES 与 .gitignore）。
  *
- * 可靠性对齐 serverStore：原子写（writeJsonAtomic）、损坏文件按空数据继续、
- * 上限裁剪（100 条）防无限增长。
+ * 数据完整性契约（v2.2.3，代码评审修复）：
+ * - **全文落盘**：selection 草稿保存完整选中文本（`content` 字段，64K 字符上限
+ *   并显式标记截断），`title` 仅作摘要——此前只存 40 字摘要，大部分内容丢失；
+ * - **串行化读-改-写**：所有变更进入队列，每次「重读磁盘 → 变更 → 原子写」，
+ *   多窗口 / 手改文件不会互相覆盖，连续快速登记不丢条目；
+ * - **加载先行**：首次变更前等待初始加载完成，命令不会抹掉已有数据；
+ * - **损坏备份**：解析失败先把原文件复制为 `.bak` 再按空数据继续（对齐 serverStore）。
  */
 
 export type DraftKind = 'selection' | 'file' | 'folder'
@@ -23,6 +28,11 @@ export interface DraftEntry {
   title: string
   /** 补充信息（来源文件、路径、批量清单等） */
   detail: string
+  /**
+   * 完整内容（v2.2.3）：仅 selection 草稿写入；超过 MAX_CONTENT_CHARS 截断并标记。
+   * file / folder 草稿不复制内容（避免把二进制或巨型文件灌进数据文件）。
+   */
+  content?: string
   createdAt: number
 }
 
@@ -33,6 +43,8 @@ const MAX_DRAFTS = 100
 const FOLDER_BATCH_LIMIT = 50
 /** 选中文本的标题摘要长度。 */
 const TITLE_LIMIT = 40
+/** selection 草稿完整内容上限（字符）。 */
+const MAX_CONTENT_CHARS = 64 * 1024
 
 function nextDraftId(): string {
   // 经 globalThis.crypto 而非 node:crypto：与串口侧 models.ts 同理，避免在
@@ -45,8 +57,21 @@ function summarizeText(text: string): string {
   return singleLine.length > TITLE_LIMIT ? `${singleLine.slice(0, TITLE_LIMIT)}…` : singleLine
 }
 
+/** 完整内容裁剪：超限截断并留下显式标记（不静默丢内容）。 */
+function clipContent(text: string): string {
+  if (text.length <= MAX_CONTENT_CHARS) {
+    return text
+  }
+  return `${text.slice(0, MAX_CONTENT_CHARS)}\n…（内容超过 ${MAX_CONTENT_CHARS / 1024}K 字符，已截断）`
+}
+
 export class DraftBoxService implements vscode.Disposable {
   private entries: DraftEntry[] = []
+
+  /** 初始加载（幂等）：首次变更与显式 load 共用。 */
+  private loadPromise: Promise<number> | undefined
+  /** 变更队列：串行化「重读 → 变更 → 原子写」，防多窗口 / 连续操作互相覆盖。 */
+  private mutationQueue: Promise<void> = Promise.resolve()
 
   private readonly _onDidChange = new vscode.EventEmitter<void>()
   readonly onDidChange = this._onDidChange.event
@@ -60,32 +85,12 @@ export class DraftBoxService implements vscode.Disposable {
   }
 
   /**
-   * 从工作区加载数据。文件不存在 / 解析失败一律按空数据继续
-   * （损坏文件保持原样不动，用户可自行修复），返回加载条数。
+   * 从工作区加载数据（幂等）。文件不存在 / 解析失败一律按空数据继续；
+   * 解析失败会把原文件复制为 `.bak` 备份（原文件保留不动），返回加载条数。
    */
   async load(): Promise<number> {
-    this.entries = []
-    const uri = this.fileUri
-    if (!uri) {
-      return 0
-    }
-    try {
-      const raw = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8')
-      const parsed = JSON.parse(raw) as { entries?: unknown }
-      if (Array.isArray(parsed.entries)) {
-        this.entries = parsed.entries.filter(
-          (entry): entry is DraftEntry =>
-            typeof entry === 'object' &&
-            entry !== null &&
-            typeof (entry as DraftEntry).id === 'string' &&
-            typeof (entry as DraftEntry).title === 'string'
-        )
-      }
-    } catch {
-      // 缺失 / 损坏：按空数据继续，原文件保持不动
-    }
-    this._onDidChange.fire()
-    return this.entries.length
+    this.loadPromise = this.doLoad()
+    return this.loadPromise
   }
 
   /** 当前草稿（最新在前）。 */
@@ -93,39 +98,51 @@ export class DraftBoxService implements vscode.Disposable {
     return [...this.entries]
   }
 
-  /** 登记一条选中文本（source 为来源文件名或 '编辑器'）。 */
+  /** 登记一条选中文本（source 为来源文件名；保存完整文本，标题取摘要）。 */
   async addSelection(text: string, source: string): Promise<number> {
     const trimmed = text.trim()
     if (!trimmed) {
       return this.entries.length
     }
-    return this.push({
-      id: nextDraftId(),
-      kind: 'selection',
-      title: summarizeText(trimmed),
-      detail: `来源：${source}`,
-      createdAt: Date.now(),
+    return this.enqueue(() => {
+      const count = this.insert({
+        id: nextDraftId(),
+        kind: 'selection',
+        title: summarizeText(trimmed),
+        detail: `来源：${source}`,
+        content: clipContent(trimmed),
+        createdAt: Date.now(),
+      })
+      return count
     })
   }
 
   /**
-   * 追加选中文本到最近一条草稿（detail 追加一段）。没有草稿时降级为新增。
-   * 返回是否发生了追加（false = 降级新增或空文本无操作）。
+   * 追加选中文本到最近一条草稿（完整文本追加到 content，摘要追加到 detail）。
+   * 没有草稿时降级为新增。返回是否发生了追加（false = 降级新增或空文本无操作）。
    */
   async appendToLatest(text: string, source: string): Promise<boolean> {
     const trimmed = text.trim()
     if (!trimmed) {
       return false
     }
-    const latest = this.entries[0]
-    if (!latest) {
-      await this.addSelection(trimmed, source)
-      return false
-    }
-    latest.detail = `${latest.detail}\n${summarizeText(trimmed)}（来自：${source}）`
-    await this.persist()
-    this._onDidChange.fire()
-    return true
+    return this.enqueue(() => {
+      const latest = this.entries[0]
+      if (!latest) {
+        this.insert({
+          id: nextDraftId(),
+          kind: 'selection',
+          title: summarizeText(trimmed),
+          detail: `来源：${source}`,
+          content: clipContent(trimmed),
+          createdAt: Date.now(),
+        })
+        return false
+      }
+      latest.detail = `${latest.detail}\n${summarizeText(trimmed)}（来自：${source}）`
+      latest.content = clipContent(`${latest.content ?? ''}\n${trimmed}`.trim())
+      return true
+    })
   }
 
   /** 登记单个文件（拒绝目录）。 */
@@ -134,13 +151,15 @@ export class DraftBoxService implements vscode.Disposable {
     if (stat.type === vscode.FileType.Directory) {
       throw new Error('请选择文件而非文件夹。')
     }
-    return this.push({
-      id: nextDraftId(),
-      kind: 'file',
-      title: uri.path.split('/').pop() || uri.fsPath,
-      detail: uri.fsPath,
-      createdAt: Date.now(),
-    })
+    return this.enqueue(() =>
+      this.insert({
+        id: nextDraftId(),
+        kind: 'file',
+        title: uri.path.split('/').pop() || uri.fsPath,
+        detail: uri.fsPath,
+        createdAt: Date.now(),
+      })
+    )
   }
 
   /** 批量登记文件（资源管理器多选）。目录项会被跳过。 */
@@ -173,27 +192,93 @@ export class DraftBoxService implements vscode.Disposable {
     }
     const listed = files.slice(0, FOLDER_BATCH_LIMIT)
     const overflow = files.length > FOLDER_BATCH_LIMIT ? ` 等 ${files.length} 个文件` : ''
-    return this.push({
-      id: nextDraftId(),
-      kind: 'folder',
-      title: uri.path.split('/').pop() || uri.fsPath,
-      detail: `${listed.join('、')}${overflow}`,
-      createdAt: Date.now(),
-    })
+    return this.enqueue(() =>
+      this.insert({
+        id: nextDraftId(),
+        kind: 'folder',
+        title: uri.path.split('/').pop() || uri.fsPath,
+        detail: `${listed.join('、')}${overflow}`,
+        createdAt: Date.now(),
+      })
+    )
   }
 
   dispose(): void {
     this._onDidChange.dispose()
   }
 
-  /** 头部插入 + 上限裁剪 + 原子落盘。返回当前条数。 */
-  private async push(entry: DraftEntry): Promise<number> {
+  /* ---------------- 内部：加载与串行化写 ---------------- */
+
+  private async doLoad(): Promise<number> {
+    this.entries = await this.readEntries()
+    this._onDidChange.fire()
+    return this.entries.length
+  }
+
+  /** 读取并校验数据文件；损坏时备份 `.bak` 后按空数据继续（幂等：备份失败静默）。 */
+  private async readEntries(): Promise<DraftEntry[]> {
+    const uri = this.fileUri
+    if (!uri) {
+      return []
+    }
+    let raw: string
+    try {
+      raw = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8')
+    } catch {
+      return [] // 文件不存在：空草稿箱
+    }
+    try {
+      const parsed = JSON.parse(raw) as { entries?: unknown }
+      if (!Array.isArray(parsed.entries)) {
+        return []
+      }
+      return parsed.entries.filter(
+        (entry): entry is DraftEntry =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          typeof (entry as DraftEntry).id === 'string' &&
+          typeof (entry as DraftEntry).title === 'string'
+      )
+    } catch {
+      // 损坏：备份原文件（保留原样），按空数据继续
+      try {
+        const backup = vscode.Uri.file(`${uri.fsPath}.bak`)
+        await vscode.workspace.fs.writeFile(backup, Buffer.from(raw, 'utf8'))
+      } catch {
+        // 备份失败不阻断（原文件本就未被改动）
+      }
+      return []
+    }
+  }
+
+  /** 变更队列：重读磁盘 → 变更 → 原子写；返回本次变更结果。 */
+  private enqueue<T>(mutate: () => T): Promise<T> {
+    const run = this.mutationQueue.then(async () => {
+      if (!this.loadPromise) {
+        this.loadPromise = this.doLoad()
+      }
+      await this.loadPromise
+      // 写前重读：多窗口 / 用户手改后的磁盘状态优先，避免覆盖外部修改
+      this.entries = await this.readEntries()
+      const result = mutate()
+      await this.persist()
+      this._onDidChange.fire()
+      return result
+    })
+    // 队列自身吞错（调用方仍能从 run 收到错误）
+    this.mutationQueue = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return run
+  }
+
+  /** 头部插入 + 上限裁剪。返回当前条数。 */
+  private insert(entry: DraftEntry): number {
     this.entries.unshift(entry)
     if (this.entries.length > MAX_DRAFTS) {
       this.entries.length = MAX_DRAFTS
     }
-    await this.persist()
-    this._onDidChange.fire()
     return this.entries.length
   }
 

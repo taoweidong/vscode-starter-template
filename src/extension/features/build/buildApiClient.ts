@@ -60,6 +60,9 @@ export class BuildValidationError extends Error {
 /* ============================ 打桩实现 ============================ */
 
 const STUB_SUBMIT_LATENCY_MS = 250
+
+/** 真实接口单请求超时（毫秒）：超时即失败，避免页面提交态永久锁定。 */
+const HTTP_REQUEST_TIMEOUT_MS = 10_000
 /** queued → running 的等待 */
 const STUB_QUEUE_MS = 1500
 /** running 期间每个进度 tick */
@@ -193,8 +196,11 @@ export class HttpBuildApiClient implements BuildApiClient {
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    // 10s 请求超时：挂起的 fetch 会让页面提交态被控制器「保持锁定」，
+    // 显式 abort 后走错误路径解锁（与控制器 10s 超时同量级）
     const response = await fetch(`${this.baseUrl.replace(/\/+$/, '')}${path}`, {
       headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS),
       ...init,
     })
     if (!response.ok) {

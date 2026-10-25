@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import { CONFIG } from '../constants'
 
 /**
  * 旧版命名一次性迁移（09 方案 §5.2 阶段 5.4：crudStarter → extStarter，v1.0.0 破坏性变更）。
@@ -25,7 +26,7 @@ export async function migrateLegacyKeys(context: vscode.ExtensionContext): Promi
 
   // ---- 配置项（全局与工作区两个作用域分别搬迁） ----
   const legacyConfig = vscode.workspace.getConfiguration(LEGACY_SECTION)
-  const currentConfig = vscode.workspace.getConfiguration('extStarter')
+  const currentConfig = vscode.workspace.getConfiguration(CONFIG.section)
   const legacyInspect = legacyConfig.inspect<boolean>(LEGACY_CONFIG_KEY)
   const targets: [boolean | undefined, vscode.ConfigurationTarget][] = [
     [legacyInspect?.globalValue, vscode.ConfigurationTarget.Global],
