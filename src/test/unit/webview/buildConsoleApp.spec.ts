@@ -137,7 +137,10 @@ describe('buildConsole App（分支编译弹框）', () => {
     expect(wrapper?.text()).toContain('release/1.0.0')
     expect(wrapper?.text()).toContain('hotfix/fail-case')
     expect(wrapper?.text()).toContain('构建中')
-    expect(wrapper?.text()).toContain('42%')
+    // 进度经进度条呈现（aria-valuenow），不再以文本展示
+    const bar = wrapper?.find('[role="progressbar"]')
+    expect(bar?.exists()).toBe(true)
+    expect(bar?.attributes('aria-valuenow')).toBe('42')
     expect(wrapper?.text()).toContain('失败')
     expect(wrapper?.text()).toContain('1 个进行中')
   })

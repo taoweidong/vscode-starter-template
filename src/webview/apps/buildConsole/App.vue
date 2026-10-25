@@ -9,12 +9,14 @@ import AppShell from '../../ui/AppShell.vue'
 import VBadge from '../../ui/VBadge.vue'
 import VButton from '../../ui/VButton.vue'
 import VEmptyState from '../../ui/VEmptyState.vue'
-import VToolbar from '../../ui/VToolbar.vue'
 
 /**
  * 分支编译弹框（v2.0）：SchemaForm 填写 → 提交（宿主经打桩/真实 HTTP 接口创建任务）
  * → 轮询任务列表展示。表单 schema 由宿主 init 下发（BUILD_FIELD_DEFS 派生）；
  * 提交走通用 submit 生命周期（submitAck 解锁 / error 定位字段）。
+ *
+ * 布局（v2.1.2 重设计）：双卡片结构——「提交构建」表单卡与「构建任务」列表卡
+ * 视觉分离；刷新按钮归属它刷新的数据（列表卡头）；进行中任务带进度条。
  */
 
 /** 轮询间隔（页面在前景时每 3s 拉一次任务列表）。 */
@@ -37,7 +39,7 @@ const runningCount = computed(
 )
 
 const STATUS_META: Record<BuildTaskWire['status'], { label: string; cls: string }> = {
-  queued: { label: '排队中', cls: 'muted' },
+  queued: { label: '排队中', cls: 'queued' },
   running: { label: '构建中', cls: 'running' },
   success: { label: '成功', cls: 'success' },
   failed: { label: '失败', cls: 'failed' },
@@ -135,17 +137,13 @@ onBeforeUnmount(() => {
     subtitle="填写信息提交构建任务，列表实时展示任务状态（HTTP 接口当前为打桩模拟）"
     width="form"
   >
-    <VToolbar label="分支编译操作">
-      <template v-if="runningCount > 0">
-        <VBadge :label="`${runningCount} 个进行中`"></VBadge>
-      </template>
-      <VButton variant="secondary" icon="refresh" :disabled="!initialized" @click="refresh">
-        刷新
-      </VButton>
-    </VToolbar>
+    <!-- 卡片一：提交构建（表单） -->
+    <section v-if="initialized" class="build-form build-card" aria-label="构建任务表单">
+      <header class="build-card__header">
+        <h2 class="build-card__title">提交构建</h2>
+        <span class="build-card__hint">带 * 为必填</span>
+      </header>
 
-    <!-- 表单区：SchemaForm 由宿主 init 的 schema 驱动（BUILD_FIELD_DEFS 派生） -->
-    <section v-if="initialized" class="build-form" aria-label="构建任务表单">
       <SchemaForm
         v-model="draft"
         :schema="fields"
@@ -154,8 +152,10 @@ onBeforeUnmount(() => {
         aria-label="构建任务表单"
         @submit="onSubmit"
       ></SchemaForm>
+
       <p v-if="feedback" class="build-form__feedback" role="alert">{{ feedback }}</p>
-      <div class="build-form__actions">
+
+      <div class="build-card__actions">
         <VButton
           variant="primary"
           icon="send"
@@ -168,18 +168,37 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- 任务列表区 -->
-    <section class="build-list" aria-label="构建任务列表">
-      <h2 class="build-list__title">构建任务</h2>
+    <!-- 卡片二：构建任务（历史列表） -->
+    <section class="build-list build-card" aria-label="构建任务列表">
+      <header class="build-card__header">
+        <h2 class="build-card__title">构建任务</h2>
+        <VBadge v-if="runningCount > 0" :label="`${runningCount} 个进行中`"></VBadge>
+        <VButton
+          class="build-card__header-action"
+          variant="secondary"
+          icon="refresh"
+          :disabled="!initialized"
+          @click="refresh"
+        >
+          刷新
+        </VButton>
+      </header>
+
       <VEmptyState
         v-if="tasks.length === 0"
         title="暂无构建任务"
         description="填写上方表单提交第一个构建任务（当前为打桩模拟，接口返回模拟数据）。"
         icon="info"
       ></VEmptyState>
-      <ul v-else class="build-list__items">
+
+      <ul v-else class="build-task-list">
         <li v-for="task in tasks" :key="task.id" class="build-task">
           <div class="build-task__head">
+            <span
+              class="build-task__dot"
+              :class="`build-task__dot--${STATUS_META[task.status].cls}`"
+              :title="STATUS_META[task.status].label"
+            ></span>
             <span class="build-task__branch">{{ task.branch }}</span>
             <VBadge :label="BUILD_TYPE_LABEL[task.buildType] ?? task.buildType"></VBadge>
             <span
@@ -187,9 +206,21 @@ onBeforeUnmount(() => {
               :class="`build-task__status--${STATUS_META[task.status].cls}`"
             >
               {{ STATUS_META[task.status].label }}
-              <span v-if="task.status === 'running'"> {{ task.progress }}%</span>
             </span>
           </div>
+
+          <div
+            v-if="task.status === 'running'"
+            class="build-task__bar"
+            role="progressbar"
+            :aria-valuenow="task.progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-label="`构建进度 ${task.progress}%`"
+          >
+            <span class="build-task__bar-fill" :style="{ width: `${task.progress}%` }"></span>
+          </div>
+
           <p v-if="task.message" class="build-task__message">{{ task.message }}</p>
           <p class="build-task__meta">
             <template v-if="task.notes">备注：{{ task.notes }} · </template>
@@ -205,34 +236,61 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.build-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ui-space-3);
-  margin-block-end: var(--ui-space-4);
+/* ---- 卡片骨架：表单卡与列表卡共用，视觉分离两块内容 ---- */
+.build-card {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  padding: var(--ui-space-4);
 }
 
-.build-form__feedback {
+.build-card + .build-card {
+  margin-block-start: var(--ui-space-4);
+}
+
+.build-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding-block-end: var(--ui-space-3);
+  border-block-end: 1px solid var(--ui-hairline);
+  margin-block-end: var(--ui-space-3);
+}
+
+.build-card__title {
   margin: 0;
+  font-size: var(--ui-font-size);
+  font-weight: 600;
+}
+
+.build-card__hint {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-badge-size);
+}
+
+.build-card__header-action {
+  margin-inline-start: auto;
+}
+
+.build-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--ui-space-3);
+}
+
+/* ---- 反馈条 ---- */
+.build-form__feedback {
+  margin: 0 0 var(--ui-space-3);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid var(--ui-error-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-error-bg);
   color: var(--ui-error);
   font-size: var(--ui-badge-size);
 }
 
-.build-form__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.build-list__title {
-  margin-block: var(--ui-space-3) var(--ui-space-2);
-  font-size: var(--ui-badge-size);
-  font-weight: 600;
-  color: var(--ui-fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.build-list__items {
+/* ---- 任务列表 ---- */
+.build-task-list {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-2);
@@ -243,9 +301,8 @@ onBeforeUnmount(() => {
 
 .build-task {
   padding: var(--ui-space-3);
-  border: 1px solid var(--ui-border);
+  border: 1px solid var(--ui-hairline);
   border-radius: var(--ui-radius);
-  background: var(--ui-surface);
 }
 
 .build-task__head {
@@ -275,8 +332,43 @@ onBeforeUnmount(() => {
   color: var(--ui-error);
 }
 
-.build-task__status--muted {
+.build-task__status--queued {
   color: var(--ui-fg-muted);
+}
+
+/* 状态色点（失败 / 成功 / 运行中 / 排队）：颜色全部走 --vscode-* / --ui-* 令牌 */
+.build-task__dot {
+  inline-size: var(--ui-status-dot-size);
+  block-size: var(--ui-status-dot-size);
+  border-radius: 50%;
+  background: var(--ui-fg-muted);
+}
+
+.build-task__dot--running {
+  background: var(--ui-link);
+}
+
+.build-task__dot--success {
+  background: var(--ui-link-active);
+}
+
+.build-task__dot--failed {
+  background: var(--ui-error);
+}
+
+/* 进行中任务的进度条（令牌：--ui-progress 颜色 / --ui-progress-height 高度） */
+.build-task__bar {
+  margin-block-start: var(--ui-space-2);
+  block-size: var(--ui-progress-height);
+  border-radius: var(--ui-radius);
+  background: var(--ui-hairline);
+  overflow: hidden;
+}
+
+.build-task__bar-fill {
+  display: block;
+  block-size: 100%;
+  background: var(--ui-progress);
 }
 
 .build-task__message {
