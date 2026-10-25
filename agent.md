@@ -13,7 +13,8 @@
   Vite（Webview 构建）+ Vitest（单测）+ mocha/@vscode/test-electron（集成）+ Playwright（e2e）。
 - **仓库**：https://github.com/taoweidong/vscode-starter-template
 - **扩展内品牌**：Extension Starter / 扩展模板（ID 前缀 `extStarter`，manifest 文案走
-  `package.nls*.json` 的 `%key%` 占位符）。功能 / 架构 / 扩展指南的完整事实源是根目录 `README.md`。
+  `package.nls*.json` 的 `%key%` 占位符）。总览事实源是根目录 `README.md`；
+  **按功能的二次开发文档**（代码地图 / 扩展实操 / 测试 / 常见坑）在 `docs/开发指南/`。
 
 ## 一键式质量门禁（强制）
 
